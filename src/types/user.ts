@@ -1,1 +1,9 @@
-// User types — populated in Phase 2
+// src/types/user.ts
+export interface User {
+  id: string
+  email: string
+  name: string
+  avatarUrl?: string
+  createdAt: string
+  updatedAt: string
+}
