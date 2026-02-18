@@ -1,3 +1,6 @@
+import { RouterProvider } from "react-router-dom"
+import { router } from "./app/router"
+
 export default function App() {
-  return <div>FlowForge</div>
+  return <RouterProvider router={router} />
 }
