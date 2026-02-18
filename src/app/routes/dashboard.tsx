@@ -1,7 +1,13 @@
 // src/app/routes/dashboard.tsx
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Workflow, Activity, CheckCircle, XCircle } from "lucide-react"
+import {
+  Plus,
+  WorkflowIcon,
+  Activity,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { StatsBar } from "@/components/shared/StatsBar"
@@ -44,11 +50,11 @@ export function DashboardPage() {
       : 0
 
   const stats = [
-    { label: "Total Workflows", value: totalWorkflows, icon: Workflow },
+    { label: "Total Workflows", value: totalWorkflows, icon: WorkflowIcon },
     { label: "Active", value: activeWorkflows, icon: Activity },
     { label: "Runs Today", value: executionsToday, icon: CheckCircle },
     { label: "Success Rate", value: `${successRate}%`, icon: XCircle },
-  ]
+  ];
 
   function handleCreate() {
     createWorkflow(
@@ -111,7 +117,9 @@ export function DashboardPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Manage your automations</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Manage your automations
+          </p>
         </div>
         <Button onClick={handleCreate} disabled={isCreating}>
           <Plus size={16} className="mr-2" />
@@ -133,7 +141,7 @@ export function DashboardPage() {
 
       {workflows.length === 0 ? (
         <EmptyState
-          icon={Workflow}
+          icon={WorkflowIcon}
           title="No workflows yet"
           description="Create your first workflow to start automating repetitive tasks."
           action={{ label: "Create workflow", onClick: handleCreate }}
@@ -166,5 +174,5 @@ export function DashboardPage() {
         isPending={isDeleting}
       />
     </div>
-  )
+  );
 }
