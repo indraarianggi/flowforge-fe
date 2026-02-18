@@ -3,6 +3,8 @@ import { AppLayout } from "./layouts/AppLayout"
 import { AuthLayout } from "./layouts/AuthLayout"
 import { EditorLayout } from "./layouts/EditorLayout"
 import { ProtectedRoute } from "./ProtectedRoute"
+import { LoginPage } from "./routes/login"
+import { RegisterPage } from "./routes/register"
 
 // Page stubs — replaced in later phases
 const DashboardPage = () => <div className="p-6 text-lg font-medium">Dashboard (coming soon)</div>
@@ -11,8 +13,6 @@ const ExecutionMonitorPage = () => <div className="p-6 text-lg font-medium">Exec
 const ExecutionHistoryPage = () => <div className="p-6 text-lg font-medium">Execution History (coming soon)</div>
 const CredentialsPage = () => <div className="p-6 text-lg font-medium">Credentials (coming soon)</div>
 const SettingsPage = () => <div className="p-6 text-lg font-medium">Settings (coming soon)</div>
-const LoginPage = () => <div className="p-6 text-lg font-medium">Login (coming soon)</div>
-const RegisterPage = () => <div className="p-6 text-lg font-medium">Register (coming soon)</div>
 
 export const router = createBrowserRouter([
   {
