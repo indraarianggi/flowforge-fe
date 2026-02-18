@@ -689,7 +689,7 @@ describe("workflowService", () => {
 
 **Step 2: Run tests**
 ```bash
-npm run test:run -- src/services/workflowService.test.ts
+pnpm test:run -- src/services/workflowService.test.ts
 ```
 Expected: All 5 tests PASS.
 
@@ -699,7 +699,7 @@ Expected: All 5 tests PASS.
 
 **Step 1: Run all tests**
 ```bash
-npm run test:run
+pnpm test:run
 ```
 Expected: All tests pass.
 

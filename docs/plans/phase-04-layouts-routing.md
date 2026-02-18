@@ -304,7 +304,7 @@ export function EditorLayout() {
 
 **Step 1: Start dev server**
 ```bash
-npm run dev
+pnpm dev
 ```
 
 **Step 2: Manual verification checklist**
@@ -332,7 +332,7 @@ Then verify:
 
 **Step 1: Run all tests**
 ```bash
-npm run test:run
+pnpm test:run
 ```
 Expected: All tests pass.
 

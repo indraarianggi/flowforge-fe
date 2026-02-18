@@ -524,7 +524,7 @@ And update:
 
 **Step 1: Start dev server**
 ```bash
-npm run dev
+pnpm dev
 ```
 
 **Step 2: Verify**
@@ -542,7 +542,7 @@ npm run dev
 
 **Step 1: Run tests**
 ```bash
-npm run test:run
+pnpm test:run
 ```
 Expected: All tests pass.
 

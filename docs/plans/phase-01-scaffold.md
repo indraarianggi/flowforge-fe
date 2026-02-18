@@ -19,14 +19,14 @@
 
 Run in the repo root (`/Users/indraarianggi/Documents/Projects/flowforge`):
 ```bash
-npm create vite@latest . -- --template react-ts
+pnpm create vite@latest . -- --template react-ts
 ```
 When prompted "Current directory is not empty. Remove existing files and continue?" — select **Ignore files and continue**.
 
 **Step 2: Verify it boots**
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 Expected: Vite dev server running at `http://localhost:5173` showing default React page.
 
@@ -38,7 +38,7 @@ Expected: Vite dev server running at `http://localhost:5173` showing default Rea
 
 **Step 1: Install runtime dependencies**
 ```bash
-npm install \
+pnpm add \
   react-router-dom@6 \
   zustand@4 \
   @tanstack/react-query@5 \
@@ -59,7 +59,7 @@ npm install \
 
 **Step 2: Install dev dependencies**
 ```bash
-npm install -D \
+pnpm add -D \
   tailwindcss@3 \
   postcss \
   autoprefixer \
@@ -74,7 +74,7 @@ npm install -D \
 
 **Step 3: Verify no peer dependency errors**
 ```bash
-npm ls --depth=0
+pnpm list --depth=0
 ```
 Expected: List of installed packages with no `UNMET PEER DEPENDENCY` errors.
 
@@ -88,7 +88,7 @@ Expected: List of installed packages with no `UNMET PEER DEPENDENCY` errors.
 
 **Step 1: Initialize Tailwind**
 ```bash
-npx tailwindcss init -p
+pnpm dlx tailwindcss init -p
 ```
 
 **Step 2: Replace `tailwind.config.js`**
@@ -150,7 +150,7 @@ export default {
 
 **Step 3: Install tailwindcss-animate**
 ```bash
-npm install -D tailwindcss-animate
+pnpm add -D tailwindcss-animate
 ```
 
 **Step 4: Replace `src/index.css`**
@@ -200,7 +200,7 @@ npm install -D tailwindcss-animate
 
 **Step 1: Initialize shadcn/ui**
 ```bash
-npx shadcn@latest init
+pnpm dlx shadcn@latest init
 ```
 Answer the prompts:
 - Style: **Default**
@@ -209,7 +209,7 @@ Answer the prompts:
 
 **Step 2: Add core components used throughout the app**
 ```bash
-npx shadcn@latest add button input label select textarea badge card dialog sheet tabs tooltip dropdown-menu separator scroll-area avatar switch progress
+pnpm dlx shadcn@latest add button input label select textarea badge card dialog sheet tabs tooltip dropdown-menu separator scroll-area avatar switch progress
 ```
 
 **Step 3: Verify components exist**
@@ -257,7 +257,7 @@ export default defineConfig({
 
 **Step 3: Verify alias works**
 ```bash
-npm run build
+pnpm build
 ```
 Expected: Build completes without errors.
 
@@ -319,7 +319,7 @@ describe("test setup", () => {
 
 **Step 5: Run the test**
 ```bash
-npm run test:run
+pnpm test:run
 ```
 Expected: `✓ src/test/smoke.test.ts (1 test) 1ms` — PASS
 
@@ -386,7 +386,7 @@ export default function App() {
 
 **Step 4: Verify app still starts**
 ```bash
-npm run dev
+pnpm dev
 ```
 Expected: Dev server starts, browser shows "FlowForge" text.
 
@@ -396,7 +396,7 @@ Expected: Dev server starts, browser shows "FlowForge" text.
 
 **Step 1: Verify tests still pass**
 ```bash
-npm run test:run
+pnpm test:run
 ```
 Expected: All tests pass.
 

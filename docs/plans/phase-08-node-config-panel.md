@@ -14,7 +14,7 @@
 
 **Step 1: Install packages**
 ```bash
-npm install @codemirror/view @codemirror/state @codemirror/lang-javascript @codemirror/theme-one-dark @uiw/react-codemirror
+pnpm add @codemirror/view @codemirror/state @codemirror/lang-javascript @codemirror/theme-one-dark @uiw/react-codemirror
 ```
 
 ---
@@ -1851,7 +1851,7 @@ Replace the stub `{isPanelOpen && (...)}` section with:
 
 **Step 1: Start dev server**
 ```bash
-npm run dev
+pnpm dev
 ```
 
 **Step 2: Verify each node type config**
@@ -1881,7 +1881,7 @@ Verify cross-cutting:
 
 **Step 1: Run tests**
 ```bash
-npm run test:run
+pnpm test:run
 ```
 
 **Step 2: Commit**

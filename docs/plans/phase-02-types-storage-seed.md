@@ -420,7 +420,7 @@ describe("storage", () => {
 
 **Step 2: Run tests**
 ```bash
-npm run test:run -- src/lib/storage.test.ts
+pnpm test:run -- src/lib/storage.test.ts
 ```
 Expected: All 6 tests PASS.
 
@@ -895,7 +895,7 @@ export { seedExecutions } from "./executions"
 
 **Step 1: Run all tests**
 ```bash
-npm run test:run
+pnpm test:run
 ```
 Expected: All tests pass.
 
