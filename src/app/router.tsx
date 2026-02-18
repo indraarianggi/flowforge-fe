@@ -5,9 +5,9 @@ import { EditorLayout } from "./layouts/EditorLayout"
 import { ProtectedRoute } from "./ProtectedRoute"
 import { LoginPage } from "./routes/login"
 import { RegisterPage } from "./routes/register"
+import { DashboardPage } from "./routes/dashboard"
 
 // Page stubs — replaced in later phases
-const DashboardPage = () => <div className="p-6 text-lg font-medium">Dashboard (coming soon)</div>
 const WorkflowEditorPage = () => <div className="p-6 text-lg font-medium">Workflow Editor (coming soon)</div>
 const ExecutionMonitorPage = () => <div className="p-6 text-lg font-medium">Execution Monitor (coming soon)</div>
 const ExecutionHistoryPage = () => <div className="p-6 text-lg font-medium">Execution History (coming soon)</div>
