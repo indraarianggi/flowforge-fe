@@ -8,6 +8,7 @@ import {
   Copy,
   Trash2,
   GitBranch,
+  History,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -74,6 +75,9 @@ export function WorkflowCard({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onRun(workflow)}>
                 <Play size={14} className="mr-2" /> Run now
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/workflows/${workflow.id}/executions`)}>
+                <History size={14} className="mr-2" /> View history
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onDuplicate(workflow.id)}>
                 <Copy size={14} className="mr-2" /> Duplicate
