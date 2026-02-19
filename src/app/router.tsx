@@ -10,7 +10,7 @@ import { WorkflowEditorPage } from "./routes/workflow-editor"
 import { ExecutionMonitorPage } from "./routes/execution-monitor"
 import { ExecutionHistoryPage } from "./routes/execution-history"
 import { CredentialsPage } from "./routes/credentials"
-const SettingsPage = () => <div className="p-6 text-lg font-medium">Settings (coming soon)</div>
+import { SettingsPage } from "./routes/settings"
 
 export const router = createBrowserRouter([
   {

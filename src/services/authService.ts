@@ -51,4 +51,13 @@ export const authService = {
     await delay(100)
     return storage.get<User>(STORAGE_KEYS.user)
   },
+
+  async updateProfile(data: { name: string }): Promise<User> {
+    await delay(400)
+    const user = storage.get<User>(STORAGE_KEYS.user)
+    if (!user) throw new Error("Not authenticated")
+    const updated: User = { ...user, name: data.name, updatedAt: new Date().toISOString() }
+    storage.set(STORAGE_KEYS.user, updated)
+    return updated
+  },
 }
