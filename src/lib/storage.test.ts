@@ -28,7 +28,7 @@ describe("storage", () => {
 
   it("updateInList patches matching item", () => {
     storage.addToList("flowforge:items", { id: "1", name: "A" })
-    storage.updateInList("flowforge:items", "1", { name: "Updated" })
+    storage.updateInList<{ id: string; name: string }>("flowforge:items", "1", { name: "Updated" })
     const list = storage.getList<{ id: string; name: string }>("flowforge:items")
     expect(list[0].name).toBe("Updated")
   })

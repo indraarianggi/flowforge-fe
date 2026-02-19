@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"
 import { workflowService } from "./workflowService"
-import storage, { STORAGE_KEYS } from "@/lib/storage"
 
 describe("workflowService", () => {
   beforeEach(() => {

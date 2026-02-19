@@ -28,7 +28,7 @@ interface EditorState {
   deleteNode: (nodeId: string) => void
 }
 
-export const useEditorStore = create<EditorState>((set, get) => ({
+export const useEditorStore = create<EditorState>((set) => ({
   workflow: null,
   selectedNodeId: null,
   isPanelOpen: false,

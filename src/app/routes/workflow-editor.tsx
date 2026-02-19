@@ -1,11 +1,12 @@
 // src/app/routes/workflow-editor.tsx
 import { useEffect, useCallback, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { ArrowLeft, Save, Play, Loader2, X } from "lucide-react"
+import { ArrowLeft, Save, Play, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { WorkflowCanvas } from "@/components/workflow/WorkflowCanvas"
 import { NodePickerModal } from "@/components/workflow/NodePickerModal"
+import { NodeConfigPanel } from "@/components/workflow/NodeConfigPanel"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useEditorStore } from "@/stores/editorStore"
 import { useWorkflow, useUpdateWorkflow, useSaveWorkflowNodes } from "@/hooks/useWorkflows"
@@ -165,23 +166,19 @@ export function WorkflowEditorPage() {
         onSelect={handleNodeSelected}
       />
 
-      {/* Node Config Panel — wired up in Phase 8 */}
-      {isPanelOpen && (
-        <div className="fixed right-0 top-0 h-full w-[400px] bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col">
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
-            <p className="text-sm font-semibold text-slate-700">Node Configuration</p>
-            <button
-              onClick={closePanel}
-              className="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-slate-400">Config panel coming in Phase 8</p>
-          </div>
-        </div>
-      )}
+      {/* Node Config Panel */}
+      {isPanelOpen && selectedNodeId && (() => {
+        const selectedNode = editorWorkflow.nodes.find((n) => n.id === selectedNodeId)
+        return selectedNode ? (
+          <NodeConfigPanel
+            open={isPanelOpen}
+            onClose={closePanel}
+            node={selectedNode}
+            nodes={editorWorkflow.nodes}
+            nodeOrder={editorWorkflow.nodeOrder}
+          />
+        ) : null
+      })()}
 
       {/* Delete confirmation */}
       <ConfirmDialog

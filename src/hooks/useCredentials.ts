@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { credentialService } from "@/services/credentialService"
-import type { Credential } from "@/types"
 
 export const credentialKeys = {
   all: ["credentials"] as const,
