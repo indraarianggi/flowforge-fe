@@ -7,9 +7,9 @@ import { LoginPage } from "./routes/login"
 import { RegisterPage } from "./routes/register"
 import { DashboardPage } from "./routes/dashboard"
 import { WorkflowEditorPage } from "./routes/workflow-editor"
+import { ExecutionMonitorPage } from "./routes/execution-monitor"
 
 // Page stubs — replaced in later phases
-const ExecutionMonitorPage = () => <div className="p-6 text-lg font-medium">Execution Monitor (coming soon)</div>
 const ExecutionHistoryPage = () => <div className="p-6 text-lg font-medium">Execution History (coming soon)</div>
 const CredentialsPage = () => <div className="p-6 text-lg font-medium">Credentials (coming soon)</div>
 const SettingsPage = () => <div className="p-6 text-lg font-medium">Settings (coming soon)</div>

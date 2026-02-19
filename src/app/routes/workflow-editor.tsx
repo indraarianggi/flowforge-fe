@@ -10,7 +10,7 @@ import { NodeConfigPanel } from "@/components/workflow/NodeConfigPanel"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useEditorStore } from "@/stores/editorStore"
 import { useWorkflow, useUpdateWorkflow, useSaveWorkflowNodes } from "@/hooks/useWorkflows"
-import { useRunWorkflow } from "@/hooks/useExecutions"
+import { useRunWorkflowWithSimulation } from "@/hooks/useExecutions"
 import type { WorkflowNode } from "@/types"
 
 export function WorkflowEditorPage() {
@@ -22,7 +22,7 @@ export function WorkflowEditorPage() {
   const { data: workflow, isLoading } = useWorkflow(id ?? "")
   const { mutate: updateWorkflow } = useUpdateWorkflow()
   const { mutate: saveNodes, isPending: isSaving } = useSaveWorkflowNodes()
-  const { mutate: runWorkflow, isPending: isRunning } = useRunWorkflow()
+  const { mutate: runWorkflow, isPending: isRunning } = useRunWorkflowWithSimulation()
 
   const {
     workflow: editorWorkflow,
