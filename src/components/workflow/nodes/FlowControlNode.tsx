@@ -42,7 +42,6 @@ function FlowControlNodeComponent({ data, selected }: NodeProps) {
         node={workflowNode}
         stepNumber={stepNumber}
         isSelected={selected ?? false}
-        onDelete={() => {}}
       />
 
       {/* Output handles */}

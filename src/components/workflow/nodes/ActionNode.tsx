@@ -20,7 +20,6 @@ function ActionNodeComponent({ data, selected }: NodeProps) {
         node={workflowNode}
         stepNumber={stepNumber}
         isSelected={selected ?? false}
-        onDelete={() => {}}
       />
       <Handle
         type="source"

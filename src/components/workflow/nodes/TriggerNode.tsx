@@ -14,9 +14,6 @@ function TriggerNodeComponent({ data, selected }: NodeProps) {
         node={workflowNode}
         stepNumber={stepNumber}
         isSelected={selected ?? false}
-        onDelete={() => {
-          // Deletion is handled by the store via onNodeClick → delete action
-        }}
       />
       <Handle
         type="source"

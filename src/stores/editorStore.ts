@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import type { Node, Edge, OnNodesChange, OnEdgesChange, NodeChange, EdgeChange } from '@xyflow/react'
-import type { Workflow, WorkflowNode, WorkflowEdge } from '@/types'
+import type { Workflow, WorkflowNode } from '@/types'
 import { autoLayout } from '@/lib/autoLayout'
 import { toRFNodes, toRFEdges, fromRFNodes, getStepNumbers } from '@/lib/flowUtils'
 import type { FlowNodeData } from '@/lib/flowUtils'
@@ -59,7 +59,7 @@ function rebuildRF(workflow: Workflow): { rfNodes: Node<FlowNodeData>[]; rfEdges
   return { rfNodes, rfEdges }
 }
 
-export const useEditorStore = create<EditorState>((set, get) => ({
+export const useEditorStore = create<EditorState>((set) => ({
   workflow: null,
   rfNodes: [],
   rfEdges: [],

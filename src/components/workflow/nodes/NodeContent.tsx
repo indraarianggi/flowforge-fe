@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { getNodeMeta } from '../nodeTypes'
+import { useEditorStore } from '@/stores/editorStore'
 import type { WorkflowNode } from '@/types'
 
 function StatusIcon({ status }: { status: WorkflowNode['status'] }) {
@@ -22,10 +23,10 @@ interface Props {
   node: WorkflowNode
   stepNumber: string
   isSelected: boolean
-  onDelete: () => void
 }
 
-export function NodeContent({ node, stepNumber, isSelected, onDelete }: Props) {
+export function NodeContent({ node, stepNumber, isSelected }: Props) {
+  const deleteNode = useEditorStore((s) => s.deleteNode)
   const meta = getNodeMeta(node.type)
 
   const borderAccent = {
@@ -87,7 +88,7 @@ export function NodeContent({ node, stepNumber, isSelected, onDelete }: Props) {
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation()
-                  onDelete()
+                  deleteNode(node.id)
                 }}
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
               >
