@@ -2,6 +2,13 @@
 import { create } from "zustand"
 import type { Workflow, WorkflowNode } from "@/types"
 
+/** Edge-based picker context — used by React Flow edge + buttons (Phase 3+) */
+export interface PickerContext {
+  sourceNodeId: string
+  sourceHandle?: string
+  targetNodeId?: string
+}
+
 interface EditorState {
   workflow: Workflow | null
   selectedNodeId: string | null
@@ -16,7 +23,7 @@ interface EditorState {
   selectNode: (nodeId: string | null) => void
   openPanel: (nodeId: string) => void
   closePanel: () => void
-  openPicker: (opts: {
+  openPicker: (opts: PickerContext | {
     insertAfterNodeId: string | null
     parentNodeId?: string | null
     branchType?: "true" | "false" | "body" | null
@@ -45,13 +52,25 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   closePanel: () => set({ isPanelOpen: false, selectedNodeId: null }),
 
-  openPicker: ({ insertAfterNodeId, parentNodeId = null, branchType = null }) =>
-    set({
-      isPickerOpen: true,
-      pickerInsertAfterNodeId: insertAfterNodeId,
-      pickerParentNodeId: parentNodeId,
-      pickerBranchType: branchType,
-    }),
+  openPicker: (opts) => {
+    // Support both legacy (insertAfterNodeId) and new edge-based (sourceNodeId) call shapes
+    if ('sourceNodeId' in opts) {
+      set({
+        isPickerOpen: true,
+        pickerInsertAfterNodeId: opts.sourceNodeId,
+        pickerParentNodeId: null,
+        pickerBranchType: null,
+      })
+    } else {
+      const { insertAfterNodeId, parentNodeId = null, branchType = null } = opts
+      set({
+        isPickerOpen: true,
+        pickerInsertAfterNodeId: insertAfterNodeId,
+        pickerParentNodeId: parentNodeId,
+        pickerBranchType: branchType,
+      })
+    }
+  },
 
   closePicker: () =>
     set({
