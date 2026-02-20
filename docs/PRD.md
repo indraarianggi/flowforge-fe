@@ -1,15 +1,15 @@
 # Product Requirements Document (PRD)
 # FlowForge — Workflow Automation Platform
 
-**Version:** 1.1 MVP (Revised)  
-**Last Updated:** February 17, 2026  
-**Author:** Product Team  
+**Version:** 1.2 MVP (React Flow Edition)
+**Last Updated:** February 20, 2026
+**Author:** Product Team
 
 ---
 
 ## 1. Executive Summary
 
-FlowForge is a workflow automation platform that enables non-technical users to connect apps, automate repetitive tasks, and build multi-step workflows through an intuitive visual interface. The platform supports both linear sequential workflows and branching/merging flows where users build workflows by stacking trigger and action cards in a structured vertical layout — no free-form drag-and-drop canvas, no code required.
+FlowForge is a workflow automation platform that enables non-technical users to connect apps, automate repetitive tasks, and build multi-step workflows through an intuitive visual interface. The platform features a **free-form horizontal canvas powered by React Flow** where users build workflows by connecting nodes left-to-right. Nodes can be freely dragged and repositioned while auto-layout keeps the flow organized. The platform supports linear sequential workflows, branching/merging flows (IF true/false), loops, and wait nodes — no code required.
 
 ### 1.1 Vision
 
@@ -19,7 +19,7 @@ Empower anyone — regardless of technical skill — to automate their digital w
 
 The MVP delivers a fully functional workflow automation tool with:
 
-- A **structured vertical workflow editor** with modal-based node selection, supporting **parallel branches and merge points**
+- A **free-form horizontal workflow editor** powered by React Flow with drag-and-drop node positioning, auto-layout, and modal-based node selection, supporting **parallel branches and merge points**
 - Core execution engine with DAG resolution, **parallel branch execution**, error handling, and retry logic
 - Built-in nodes: Manual Trigger, Webhook, Schedule/Cron, HTTP Request, IF/Condition, Set/Transform, Code, **Loop**, **Wait**, **Merge**
 - **Parallel branch support**: IF node routes to true/false branches that execute independently and can be merged
@@ -60,7 +60,7 @@ The MVP delivers a fully functional workflow automation tool with:
 | US-01 | As a user, I can create a new workflow that starts with a Trigger placeholder and an Action placeholder so I have a clear starting point. | P0 |
 | US-02 | As a user, I can click a placeholder card to open a modal where I search and select an app, then pick a specific event/action. | P0 |
 | US-03 | As a user, I can add steps between existing nodes or at the end by clicking a "+" button. | P0 |
-| US-04 | As a user, I can reorder steps by moving them up or down within a branch (but not drag freely on a canvas). | P1 |
+| US-04 | As a user, I can reorder steps by dragging nodes on the canvas and repositioning them. Auto-layout can re-organize the flow at any time. | P1 |
 | US-05 | As a user, I can delete a step from the workflow and the remaining steps re-number automatically. | P0 |
 | US-06 | As a user, I can rename my workflow by clicking the title in the top bar. | P0 |
 | US-07 | As a user, I can duplicate an existing workflow to use it as a starting point for a new one. | P1 |
@@ -133,8 +133,8 @@ The MVP delivers a fully functional workflow automation tool with:
 
 ### 4.1 Workflow Editor
 
-**FR-01: Structured Vertical Layout**  
-Workflows are displayed as a vertical stack of node cards connected by lines with "+" insertion points. When an IF/Condition node is present, the layout splits into two visible branches (true/false) displayed either side-by-side or as labeled vertical sub-stacks. A Merge node visually re-joins the branches. Loop nodes display their body as an indented or enclosed sub-section. Nodes cannot be freely dragged on a canvas. The layout auto-arranges top to bottom.
+**FR-01: Free-Form Horizontal Canvas (React Flow)**
+Workflows are displayed on a full-viewport React Flow canvas with nodes flowing left-to-right. Nodes are connected by edges with "+" insertion points at edge midpoints. Users can freely drag and reposition individual nodes on the canvas. An auto-layout system (powered by dagre) positions nodes in a clean left-to-right DAG layout, and re-runs when nodes are added or removed. When an IF/Condition node is present, the auto-layout splits into two branches positioned vertically (true branch above, false branch below) with colored labeled edges. Loop body nodes are connected inline as individual nodes with distinct "Loop" edges. The canvas includes standard React Flow controls: zoom, pan, minimap, and fit-to-view.
 
 **FR-02: Node Picker Modal**  
 Clicking a placeholder or the "+" button opens a full-screen modal with two steps:
@@ -152,19 +152,21 @@ Each node card displays:
 **FR-04: Auto-numbering**  
 Steps are numbered sequentially (1, 2, 3, ...) and re-number automatically when steps are added, removed, or reordered. Within parallel branches, numbering uses a sub-notation (e.g., 3a.1, 3a.2 for the true branch; 3b.1, 3b.2 for the false branch).
 
-**FR-05: Branch Visualization**  
-When an IF node is placed, the editor renders two visual branch paths below it:
-- **True branch** (left or top): labeled "✓ True" with a green accent
-- **False branch** (right or bottom): labeled "✗ False" with a red/gray accent
-- Each branch has its own "+" insertion point for adding steps
-- A Merge node (or the next sequential node after the branch) visually closes the fork with connector lines converging
+**FR-05: Branch Visualization**
+When an IF node is placed, the auto-layout positions two branch paths to the right of it:
+- **True branch** (upper path): connected by a green edge labeled "True"
+- **False branch** (lower path): connected by a gray edge labeled "False"
+- Each branch edge has a "+" insertion point for adding steps to that branch
+- A Merge node (or the next sequential node after the branch) receives edges from both branches, visually converging the flow
+- Branch nodes can be dragged to custom positions while maintaining their edge connections
 
-**FR-06: Loop Body Visualization**  
-When a Loop node is placed, the editor renders an enclosed sub-section below it:
-- A visual container (subtle border or background) groups the loop's body nodes
-- The container header shows the loop configuration (e.g., "For each item in $steps[2].json.rows")
-- Inside the container, nodes are stacked vertically with standard "+" insertion points
-- Below the container, the flow continues to the next node
+**FR-06: Loop Body Visualization**
+When a Loop node is placed, its body nodes are connected inline as individual nodes to the right:
+- The Loop node connects to its first body node via a distinct blue dashed edge labeled "Loop"
+- Body nodes connect sequentially like regular nodes
+- The last body node connects to the next node after the loop via a "Loop Complete" edge
+- Loop body nodes can be dragged and repositioned like any other node
+- The Loop node card displays a summary of its configuration (e.g., "For each item in rows")
 
 ### 4.2 Node Configuration Panel
 
@@ -436,7 +438,7 @@ WebSocket connections are authenticated via the same session cookie as the REST 
 | Per-node execution overhead (engine, not external API) | < 50ms |
 | WebSocket event delivery latency | < 200ms |
 | Dashboard load time | < 1.5 seconds |
-| Branch visualization render | < 200ms for up to 3 nesting levels |
+| Canvas render (React Flow) | < 200ms for up to 50 nodes with auto-layout |
 
 ### 5.2 Scalability (MVP)
 
@@ -476,7 +478,7 @@ WebSocket connections are authenticated via the same session cookie as the REST 
 - Responsive layout: minimum supported width 1024px (desktop-first, tablet-acceptable)
 - Keyboard navigation support for modal and form interactions
 - Maximum 3 clicks from dashboard to running a workflow
-- Parallel branches and loop bodies are visually contained so users understand scope
+- Parallel branches use colored labeled edges (green for true, gray for false) so users understand flow paths. Auto-layout keeps the canvas organized.
 
 ---
 
@@ -486,7 +488,7 @@ WebSocket connections are authenticated via the same session cookie as the REST 
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18+, TypeScript, Vite, Zustand, TanStack Query, Tailwind CSS, shadcn/ui, CodeMirror 6 |
+| Frontend | React 18+, TypeScript, Vite, Zustand, TanStack Query, Tailwind CSS, shadcn/ui, CodeMirror 6, React Flow (@xyflow/react), dagre |
 | Backend | Hono, Node.js 20+, TypeScript, Drizzle ORM, Zod |
 | Database | PostgreSQL 16 |
 | Queue | BullMQ + Redis 7 |
@@ -620,7 +622,6 @@ See the full ERD document for detailed schema. Key entities:
 
 The following are explicitly excluded from the MVP but planned for future iterations:
 
-- Free-form canvas / drag-and-drop node editor
 - More than 2 integration platforms
 - Team/organization features (shared workflows, RBAC)
 - Workflow versioning and rollback

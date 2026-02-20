@@ -2,8 +2,8 @@
 
 # FlowForge — Complete Database Schema
 
-**Version:** 1.1 MVP (Revised)  
-**Last Updated:** February 17, 2026  
+**Version:** 1.2 MVP (React Flow Edition)
+**Last Updated:** February 20, 2026
 **Database:** PostgreSQL 16  
 **ORM:** Drizzle ORM
 
@@ -49,7 +49,7 @@ erDiagram
         text description
         boolean is_active
         jsonb nodes
-        jsonb connections
+        jsonb edges
         jsonb settings
         jsonb trigger_config
         timestamp last_run_at
@@ -200,7 +200,7 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 
 ### 2.3 workflows
 
-The core workflow definition table. Nodes and connections are stored as JSONB, keeping the schema flexible as node types evolve. The JSONB schema now supports branching (IF true/false paths), loop containers, wait nodes, and merge nodes.
+The core workflow definition table. Nodes and edges are stored as JSONB, keeping the schema flexible as node types evolve. The JSONB schema now supports branching (IF true/false paths), loop containers, wait nodes, and merge nodes.
 
 ```sql
 CREATE TABLE workflows (
@@ -210,7 +210,7 @@ CREATE TABLE workflows (
     description     TEXT DEFAULT '',
     is_active       BOOLEAN NOT NULL DEFAULT FALSE,
     nodes           JSONB NOT NULL DEFAULT '[]',
-    connections     JSONB NOT NULL DEFAULT '[]',
+    edges           JSONB NOT NULL DEFAULT '[]',
     settings        JSONB NOT NULL DEFAULT '{}',
     trigger_config  JSONB DEFAULT NULL,
     last_run_at     TIMESTAMPTZ,
@@ -231,7 +231,7 @@ CREATE INDEX idx_workflows_updated_at ON workflows(updated_at DESC);
 | description    | TEXT         | default ''              | Optional description                                                    |
 | is_active      | BOOLEAN      | NOT NULL, default FALSE | Whether triggers are listening                                          |
 | nodes          | JSONB        | NOT NULL, default '[]'  | Array of WorkflowNode objects (see 3.1)                                 |
-| connections    | JSONB        | NOT NULL, default '[]'  | Array of Connection objects (see 3.2)                                   |
+| edges          | JSONB        | NOT NULL, default '[]'  | Array of WorkflowEdge objects (see 3.2)                                 |
 | settings       | JSONB        | NOT NULL, default '{}'  | Workflow-level settings (see 3.3)                                       |
 | trigger_config | JSONB        | nullable                | Denormalized trigger setup for quick access by scheduler/webhook router |
 | last_run_at    | TIMESTAMPTZ  | nullable                | Timestamp of most recent execution                                      |
@@ -491,21 +491,22 @@ CREATE INDEX idx_execution_waits_webhook ON execution_waits(resume_webhook_path)
 ```typescript
 interface WorkflowNode {
   id: string; // Unique within workflow, e.g., "node_a1b2c3"
-  type: string; // Node type identifier, e.g., "telegram.sendMessage", "flow.loop", "flow.wait", "flow.merge"
-  name: string; // User-facing label, e.g., "Send Telegram Message"
-  stepIndex: number; // 0-based sequential position
-  parameters: Record<string, any>; // Configured values for this node
-  credentialId?: string; // UUID reference to credentials table
-  disabled: boolean; // If true, skip during execution
+  type: string; // Node type identifier matching frontend NodeType, e.g., "telegram_send_message", "loop", "if_condition"
+  label: string; // User-facing label, e.g., "Send Telegram Message"
+  category: "trigger" | "action" | "flow_control" | "integration"; // Node category for UI rendering and execution routing
+  position: { x: number; y: number }; // Canvas position for React Flow rendering
+  config: Record<string, any>; // Configured values for this node (typed as NodeConfig union in the frontend)
+  credentialId?: string; // UUID reference to credentials table — top-level for quick execution engine access
+  status: "unconfigured" | "configured" | "tested" | "error"; // Configuration state shown in the editor UI
+  disabled?: boolean; // If true, skip this node during execution without error. Default: false
   notes?: string; // User's notes about this step
-  onError: "stop" | "continue" | "retry" | "skipItem"; // 'skipItem' only valid inside Loop
-  retryCount?: number; // Only if onError = 'retry'. Default: 3
-  retryIntervalMs?: number; // Delay between retries. Default: 1000
+  onError?: "stop" | "continue" | "retry" | "skipItem"; // Error handling mode. Default: 'stop'. 'skipItem' only valid inside Loop
+  retryCount?: number; // Only when onError = 'retry'. Default: 3
+  retryDelayMs?: number; // Delay between retries in milliseconds. Default: 1000
 
   // === Branch & Flow Control Fields ===
-  parentId?: string; // ID of parent node if this node is inside a Loop body or a branch
-  branchSide?: "true" | "false"; // Which side of an IF branch this node belongs to. Only set for nodes inside an IF branch.
-  childNodeIds?: string[]; // For Loop nodes: IDs of nodes that form the loop body, in order.
+  parentId?: string; // ID of parent node if this node is inside a Loop body or an IF branch
+  branchType?: "true" | "false" | "body"; // Which branch/section this node belongs to. 'body' for loop body nodes.
 }
 ```
 
@@ -515,152 +516,167 @@ interface WorkflowNode {
 [
   {
     "id": "node_trigger_001",
-    "type": "telegram.newMessage",
-    "name": "New Telegram Message",
-    "stepIndex": 0,
-    "parameters": {
+    "type": "telegram_trigger",
+    "label": "New Telegram Message",
+    "category": "trigger",
+    "status": "configured",
+    "position": { "x": 0, "y": 0 },
+    "config": {
       "chatFilter": "all",
       "messageTypeFilter": "text"
     },
     "credentialId": "cred-uuid-telegram-bot",
-    "disabled": false,
     "onError": "stop"
   },
   {
     "id": "node_if_002",
-    "type": "core.if",
-    "name": "Check Message Type",
-    "stepIndex": 1,
-    "parameters": {
+    "type": "if_condition",
+    "label": "Check Message Type",
+    "category": "flow_control",
+    "status": "configured",
+    "position": { "x": 300, "y": 0 },
+    "config": {
+      "combinator": "AND",
       "conditions": [
         {
-          "field": "{{ $steps[0].json.text }}",
+          "id": "c-001",
+          "field": "{{ $trigger.json.text }}",
           "operation": "contains",
           "value": "/start"
         }
-      ],
-      "combineMode": "AND"
+      ]
     },
-    "disabled": false,
     "onError": "stop"
   },
   {
     "id": "node_true_003",
-    "type": "telegram.sendMessage",
-    "name": "Send Welcome",
-    "stepIndex": 2,
-    "parameters": {
-      "chatId": "{{ $steps[0].json.chat.id }}",
+    "type": "telegram_send_message",
+    "label": "Send Welcome",
+    "category": "integration",
+    "status": "configured",
+    "position": { "x": 600, "y": -100 },
+    "config": {
+      "chatId": "{{ $trigger.json.chat.id }}",
       "text": "Welcome!"
     },
     "credentialId": "cred-uuid-telegram-bot",
-    "disabled": false,
     "onError": "stop",
     "parentId": "node_if_002",
-    "branchSide": "true"
+    "branchType": "true"
   },
   {
     "id": "node_false_004",
-    "type": "googleSheets.appendRow",
-    "name": "Log Unknown Message",
-    "stepIndex": 3,
-    "parameters": {
+    "type": "google_sheets_append",
+    "label": "Log Unknown Message",
+    "category": "integration",
+    "status": "configured",
+    "position": { "x": 600, "y": 100 },
+    "config": {
       "spreadsheetId": "1BxiMVs...",
       "sheetName": "Log",
-      "columns": { "Message": "{{ $steps[0].json.text }}" }
+      "columns": { "Message": "{{ $trigger.json.text }}" }
     },
     "credentialId": "cred-uuid-google-oauth",
-    "disabled": false,
     "onError": "stop",
     "parentId": "node_if_002",
-    "branchSide": "false"
+    "branchType": "false"
   },
   {
     "id": "node_merge_005",
-    "type": "flow.merge",
-    "name": "Merge Branches",
-    "stepIndex": 4,
-    "parameters": {
-      "mode": "chooseBranch"
+    "type": "merge",
+    "label": "Merge Branches",
+    "category": "flow_control",
+    "status": "configured",
+    "position": { "x": 900, "y": 0 },
+    "config": {
+      "strategy": "choose_branch"
     },
-    "disabled": false,
     "onError": "stop"
   },
   {
     "id": "node_loop_006",
-    "type": "flow.loop",
-    "name": "Process Each Row",
-    "stepIndex": 5,
-    "parameters": {
+    "type": "loop",
+    "label": "Process Each Row",
+    "category": "flow_control",
+    "status": "configured",
+    "position": { "x": 1200, "y": 0 },
+    "config": {
       "mode": "forEach",
       "source": "{{ $steps[4].json.items }}",
       "batchSize": 1,
       "onItemError": "skipItem"
     },
-    "disabled": false,
-    "onError": "stop",
-    "childNodeIds": ["node_loop_body_007", "node_loop_body_008"]
+    "onError": "stop"
   },
   {
     "id": "node_loop_body_007",
-    "type": "httpRequest",
-    "name": "Call API",
-    "stepIndex": 6,
-    "parameters": {
+    "type": "http_request",
+    "label": "Call API",
+    "category": "action",
+    "status": "configured",
+    "position": { "x": 1500, "y": 0 },
+    "config": {
       "url": "https://api.example.com/process",
       "method": "POST",
+      "bodyType": "json",
       "body": "{{ $item }}"
     },
-    "disabled": false,
     "onError": "skipItem",
-    "parentId": "node_loop_006"
+    "parentId": "node_loop_006",
+    "branchType": "body"
   },
   {
     "id": "node_loop_body_008",
-    "type": "flow.wait",
-    "name": "Rate Limit Delay",
-    "stepIndex": 7,
-    "parameters": {
+    "type": "wait",
+    "label": "Rate Limit Delay",
+    "category": "flow_control",
+    "status": "configured",
+    "position": { "x": 1800, "y": 0 },
+    "config": {
       "mode": "duration",
-      "duration": 2,
-      "unit": "seconds"
+      "durationValue": 2,
+      "durationUnit": "seconds"
     },
-    "disabled": false,
     "onError": "continue",
-    "parentId": "node_loop_006"
+    "parentId": "node_loop_006",
+    "branchType": "body"
   }
 ]
 ```
 
-### 3.2 WorkflowConnection (stored in `workflows.connections`)
+### 3.2 WorkflowEdge (stored in `workflows.edges`)
 
-Connections now fully support branching (IF true/false outputs), loop body connections, and merge inputs.
+Edges fully support branching (IF true/false outputs), loop body connections, and merge inputs. The schema uses React Flow's native field naming (`source`, `target`, `sourceHandle`, `targetHandle`) for seamless serialization without a mapping layer between frontend and backend.
 
 ```typescript
-interface WorkflowConnection {
-  id: string; // Unique, e.g., "conn_001"
-  sourceNodeId: string; // Output from this node
-  sourceOutput: string; // Port name: "main", "true", "false", "loopBody", "loopComplete"
-  targetNodeId: string; // Input to this node
-  targetInput: string; // Port name: "main", "branchA", "branchB"
+interface WorkflowEdge {
+  id: string; // Unique, e.g., "e-001"
+  source: string; // Source node ID
+  target: string; // Target node ID
+  sourceHandle?: string; // Output port: "main" | "true" | "false" | "loopBody" | "loopComplete"
+  targetHandle?: string; // Input port: "main" | "branchA" | "branchB"
+  type?: string; // Edge visual type: "default" | "branch" | "loop". Useful for execution engine routing.
+  label?: string; // Display label on edge: "True" | "False" | "Loop"
 }
 ```
 
-**Source Output Ports:**
+**`sourceHandle` Values:**
 
-| Port           | Used By            | Description                                       |
-| -------------- | ------------------ | ------------------------------------------------- |
-| `main`         | All standard nodes | Default output                                    |
-| `true`         | IF/Condition       | Output when condition evaluates to true           |
-| `false`        | IF/Condition       | Output when condition evaluates to false          |
-| `loopBody`     | Loop               | Connection to the first node inside the loop body |
-| `loopComplete` | Loop               | Connection to the node after the loop finishes    |
+| Value          | Used By                     | Description                                       |
+| -------------- | --------------------------- | ------------------------------------------------- |
+| `main`         | All standard nodes, Wait    | Default output (can be omitted)                   |
+| `true`         | IF/Condition                | Output when condition evaluates to true           |
+| `false`        | IF/Condition                | Output when condition evaluates to false          |
+| `loopBody`     | Loop                        | Connection to the first node inside the loop body |
+| `loopComplete` | Loop                        | Connection to the node after the loop finishes    |
 
-**Target Input Ports:**
+> **Wait node**: uses a single `sourceHandle: 'main'` output. Execution resumes from this handle after the configured duration or webhook resume event.
 
-| Port      | Used By            | Description                                      |
+**`targetHandle` Values:**
+
+| Value     | Used By            | Description                                      |
 | --------- | ------------------ | ------------------------------------------------ |
-| `main`    | All standard nodes | Default input                                    |
+| `main`    | All standard nodes | Default input (can be omitted)                   |
 | `branchA` | Merge              | Input from the first branch (typically "true")   |
 | `branchB` | Merge              | Input from the second branch (typically "false") |
 
@@ -669,60 +685,55 @@ interface WorkflowConnection {
 ```json
 [
   {
-    "id": "conn_001",
-    "sourceNodeId": "node_trigger_001",
-    "sourceOutput": "main",
-    "targetNodeId": "node_if_002",
-    "targetInput": "main"
+    "id": "e-001",
+    "source": "node_trigger_001",
+    "target": "node_if_002"
   },
   {
-    "id": "conn_002",
-    "sourceNodeId": "node_if_002",
-    "sourceOutput": "true",
-    "targetNodeId": "node_true_003",
-    "targetInput": "main"
+    "id": "e-002",
+    "source": "node_if_002",
+    "sourceHandle": "true",
+    "target": "node_true_003",
+    "type": "branch",
+    "label": "True"
   },
   {
-    "id": "conn_003",
-    "sourceNodeId": "node_if_002",
-    "sourceOutput": "false",
-    "targetNodeId": "node_false_004",
-    "targetInput": "main"
+    "id": "e-003",
+    "source": "node_if_002",
+    "sourceHandle": "false",
+    "target": "node_false_004",
+    "type": "branch",
+    "label": "False"
   },
   {
-    "id": "conn_004",
-    "sourceNodeId": "node_true_003",
-    "sourceOutput": "main",
-    "targetNodeId": "node_merge_005",
-    "targetInput": "branchA"
+    "id": "e-004",
+    "source": "node_true_003",
+    "target": "node_merge_005",
+    "targetHandle": "branchA"
   },
   {
-    "id": "conn_005",
-    "sourceNodeId": "node_false_004",
-    "sourceOutput": "main",
-    "targetNodeId": "node_merge_005",
-    "targetInput": "branchB"
+    "id": "e-005",
+    "source": "node_false_004",
+    "target": "node_merge_005",
+    "targetHandle": "branchB"
   },
   {
-    "id": "conn_006",
-    "sourceNodeId": "node_merge_005",
-    "sourceOutput": "main",
-    "targetNodeId": "node_loop_006",
-    "targetInput": "main"
+    "id": "e-006",
+    "source": "node_merge_005",
+    "target": "node_loop_006"
   },
   {
-    "id": "conn_007",
-    "sourceNodeId": "node_loop_006",
-    "sourceOutput": "loopBody",
-    "targetNodeId": "node_loop_body_007",
-    "targetInput": "main"
+    "id": "e-007",
+    "source": "node_loop_006",
+    "sourceHandle": "loopBody",
+    "target": "node_loop_body_007",
+    "type": "loop",
+    "label": "Loop"
   },
   {
-    "id": "conn_008",
-    "sourceNodeId": "node_loop_body_007",
-    "sourceOutput": "main",
-    "targetNodeId": "node_loop_body_008",
-    "targetInput": "main"
+    "id": "e-008",
+    "source": "node_loop_body_007",
+    "target": "node_loop_body_008"
   }
 ]
 ```
@@ -731,14 +742,14 @@ interface WorkflowConnection {
 
 ```typescript
 interface WorkflowSettings {
-  timezone: string; // IANA timezone, e.g., "Asia/Jakarta". Default: user's timezone
-  maxExecutionTimeMs: number; // Max total execution time. Default: 300000 (5 min), 1800000 (30 min) if Wait nodes present
-  maxLoopIterations: number; // Max iterations per Loop node. Default: 1000
-  maxNestingDepth: number; // Max branch/loop nesting. Default: 3
-  errorWorkflowId?: string; // Another workflow to trigger on failure (future)
-  notes?: string; // Workflow-level notes
+  timezone?: string; // IANA timezone, e.g., "Asia/Jakarta". Default: "UTC"
+  maxExecutionTimeMs?: number; // Max total execution time in ms. Default: 300000 (5 min)
+  maxLoopIterations?: number; // Max iterations per Loop node. Default: 1000
+  maxNestingDepth?: number; // Max branch/loop nesting depth. Default: 3
 }
 ```
+
+> **Note:** All fields are optional. The execution engine applies the documented defaults when a field is absent. `errorWorkflowId` and `notes` are deferred to a post-MVP release.
 
 ### 3.4 TriggerConfig (stored in `workflows.trigger_config`)
 
@@ -1007,7 +1018,7 @@ export const workflows = pgTable(
     description: text("description").default(""),
     isActive: boolean("is_active").notNull().default(false),
     nodes: jsonb("nodes").notNull().default([]),
-    connections: jsonb("connections").notNull().default([]),
+    edges: jsonb("edges").notNull().default([]),
     settings: jsonb("settings").notNull().default({}),
     triggerConfig: jsonb("trigger_config"),
     lastRunAt: timestamp("last_run_at", { withTimezone: true }),

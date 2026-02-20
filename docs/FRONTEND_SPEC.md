@@ -1,8 +1,8 @@
 # Frontend Specification
 # FlowForge — UI/UX & Component Architecture
 
-**Version:** 1.1 MVP (Revised)  
-**Framework:** React 18+ / TypeScript / Vite  
+**Version:** 1.2 MVP (React Flow Edition)
+**Framework:** React 18+ / TypeScript / Vite
 
 ---
 
@@ -16,10 +16,10 @@ FlowForge targets non-technical users. Every design decision must pass this test
 
 1. **No code by default.** Every configuration is achievable through dropdowns, toggles, and point-and-click field mapping. The Code node exists for power users but is never required.
 2. **Show, don't tell.** After each test run, show the actual data a step produced. Don't describe it — display it.
-3. **Structured flow.** Workflows are vertical and top-to-bottom. Branches are visually contained (side-by-side or stacked with labels). Loop bodies are enclosed in visual containers. No free-form canvas. No spaghetti connections.
+3. **Guided free-form flow.** Workflows flow left-to-right on a React Flow canvas. Nodes can be freely dragged and repositioned. Auto-layout (dagre) keeps the flow organized by default. IF branches are auto-positioned vertically (true above, false below) with colored labeled edges. Loop body nodes connect inline. The canvas prevents spaghetti via structured edge routing.
 4. **Errors are fixable, not scary.** Every error message includes: what went wrong (plain English), which step failed, and a suggested fix with an action button.
 5. **3-click rule.** Users should reach any workflow's editor in ≤ 3 clicks from the dashboard.
-6. **Visual containment.** Branches, loops, and nested structures use clear visual boundaries (borders, backgrounds, indentation) so users always understand scope and hierarchy.
+6. **Visual clarity.** Branches use colored labeled edges (green for true, gray for false) so users understand flow paths. Loop edges use blue dashed styling. Auto-layout maintains hierarchy and readability.
 
 ### 1.3 Visual Identity
 
@@ -61,6 +61,8 @@ FlowForge targets non-technical users. Every design decision must pass this test
 | UI Components | shadcn/ui + Radix | Latest | Accessible, unstyled primitives |
 | Styling | Tailwind CSS | 3.x | Utility-first, fast iteration |
 | Forms | React Hook Form + Zod | Latest | Performant forms with schema validation |
+| Workflow Canvas | @xyflow/react (React Flow) | 12.x | Free-form node-based canvas with drag, zoom, pan |
+| Graph Layout | dagre | 0.8.x | DAG auto-layout for left-to-right node positioning |
 | Code Editor | CodeMirror 6 | Latest | Expression editor and Code node |
 | Icons | Lucide React | Latest | Clean, consistent icon set |
 | Toasts | Sonner | Latest | Non-blocking notifications |
@@ -112,22 +114,17 @@ src/
 │   │   └── app-shell.tsx
 │   │
 │   ├── workflow/
-│   │   ├── workflow-canvas.tsx        # Vertical structured step list (branches/loops)
-│   │   ├── node-card.tsx              # Individual step card
-│   │   ├── node-card-placeholder.tsx  # Dashed placeholder card
-│   │   ├── step-connector.tsx         # Line + "+" between cards
-│   │   ├── node-picker-modal.tsx      # Full modal: app grid → event list
-│   │   ├── app-grid.tsx               # Grid of available apps in modal
-│   │   ├── event-list.tsx             # List of events after selecting app
+│   │   ├── ReactFlowCanvas.tsx        # React Flow wrapper with controls, minimap, background
+│   │   ├── nodes/                     # Custom React Flow node types
+│   │   │   ├── TriggerNode.tsx        # Trigger node (purple accent, single output handle)
+│   │   │   ├── ActionNode.tsx         # Action node (blue accent, input + output handles)
+│   │   │   ├── FlowControlNode.tsx    # IF, Loop, Wait, Merge (amber accent, multiple handles)
+│   │   │   └── NodeContent.tsx        # Shared node card content (icon, label, status, menu)
+│   │   ├── edges/                     # Custom React Flow edge types
+│   │   │   ├── DefaultEdge.tsx        # Standard edge with "+" button at midpoint
+│   │   │   └── BranchEdge.tsx         # Colored labeled edge for true/false/loop branches
+│   │   ├── node-picker-modal.tsx      # Full modal: app grid → event list (edge-context aware)
 │   │   ├── node-status-badge.tsx      # Green check / yellow dot / red X
-│   │   ├── branch-container.tsx       # Visual container for IF true/false branches
-│   │   ├── branch-column.tsx          # Single branch column (true or false side)
-│   │   ├── branch-label.tsx           # "✓ True" / "✗ False" label header
-│   │   ├── loop-container.tsx         # Visual container enclosing loop body nodes
-│   │   ├── loop-header.tsx            # Loop config summary at top of container
-│   │   ├── merge-node-card.tsx        # Special card with converging connectors
-│   │   ├── wait-node-card.tsx         # Card showing wait duration/status
-│   │   └── nesting-indicator.tsx      # Depth indicator for nested structures
 │   │
 │   ├── config-panel/
 │   │   ├── config-drawer.tsx
@@ -197,8 +194,8 @@ src/
 ├── lib/
 │   ├── node-registry.ts
 │   ├── expression-utils.ts
-│   ├── branch-utils.ts           # Branch layout calculations
-│   ├── loop-utils.ts             # Loop body node management
+│   ├── autoLayout.ts             # Dagre-based auto-layout for React Flow nodes/edges
+│   ├── flowUtils.ts              # React Flow node/edge conversion utilities
 │   ├── format.ts
 │   ├── constants.ts
 │   └── validators.ts
@@ -220,81 +217,75 @@ src/
 
 ### 4.1 Zustand Stores
 
-#### WorkflowStore
+#### WorkflowStore (EditorStore)
 
 ```typescript
-interface WorkflowStore {
-  // State
+import type { Node, Edge, OnNodesChange, OnEdgesChange } from '@xyflow/react';
+
+interface EditorState {
+  // Workflow data
   workflow: Workflow | null;
   isDirty: boolean;
   isSaving: boolean;
 
-  // Actions — Basic
+  // React Flow state
+  rfNodes: Node[];             // React Flow node objects (with positions, data)
+  rfEdges: Edge[];             // React Flow edge objects
+  onNodesChange: OnNodesChange; // React Flow node change handler (drag, select, etc.)
+  onEdgesChange: OnEdgesChange; // React Flow edge change handler
+
+  // UI state
+  selectedNodeId: string | null;
+  isPanelOpen: boolean;
+  isPickerOpen: boolean;
+  pickerContext: {
+    sourceNodeId: string;       // Node to insert after
+    sourceHandle?: string;      // Handle to insert on ('main', 'true', 'false', 'loopBody')
+    targetNodeId?: string;      // Existing target (for edge-split insertion)
+  } | null;
+
+  // Actions — Workflow
   loadWorkflow: (id: string) => Promise<void>;
   setName: (name: string) => void;
-  addNode: (afterStepIndex: number, nodeType: string, eventType: string, parentId?: string, branchSide?: 'true' | 'false') => void;
-  removeNode: (nodeId: string) => void;
-  updateNodeParameters: (nodeId: string, params: Record<string, any>) => void;
-  updateNodeCredential: (nodeId: string, credentialId: string) => void;
-  updateNodeErrorHandling: (nodeId: string, config: ErrorHandlingConfig) => void;
-  moveNodeUp: (nodeId: string) => void;
-  moveNodeDown: (nodeId: string) => void;
-  reorderConnections: () => void;
   saveWorkflow: () => Promise<void>;
   toggleActive: () => Promise<void>;
 
-  // Actions — Branching & Flow Control
-  addBranchNode: (ifNodeId: string, branchSide: 'true' | 'false', nodeType: string, eventType: string) => void;
-  addLoopBodyNode: (loopNodeId: string, nodeType: string, eventType: string) => void;
-  removeLoopBodyNode: (loopNodeId: string, bodyNodeId: string) => void;
-  insertMergeAfterIF: (ifNodeId: string) => void;
+  // Actions — Node CRUD
+  addNode: (node: WorkflowNode, context: PickerContext) => void;  // Create node, edges, auto-layout
+  deleteNode: (nodeId: string) => void;                           // Remove node, reconnect edges
+  updateNodeConfig: (nodeId: string, config: Partial<NodeConfig>) => void;
+  updateNodeStatus: (nodeId: string, status: NodeStatus) => void;
 
-  // Computed
-  getBranchNodes: (ifNodeId: string, branchSide: 'true' | 'false') => WorkflowNode[];
-  getLoopBodyNodes: (loopNodeId: string) => WorkflowNode[];
-  getNodeDepth: (nodeId: string) => number;
+  // Actions — Canvas
+  autoLayout: () => void;                 // Run dagre layout on all nodes/edges
+  selectNode: (nodeId: string) => void;
+  openPanel: () => void;
+  closePanel: () => void;
+  openPicker: (context: PickerContext) => void;
+  closePicker: () => void;
+
+  // Actions — React Flow sync
+  syncWorkflowFromRF: () => void;  // Sync RF node positions back to workflow data
 }
 ```
 
 #### UIStore
 
+> **Note:** With the React Flow migration, most UI state (selectedNodeId, panel open/close, picker context) has been consolidated into the EditorStore above. The UIStore is retained for cross-cutting UI concerns only.
+
 ```typescript
 interface UIStore {
-  // Config panel
-  selectedNodeId: string | null;
-  isConfigPanelOpen: boolean;
+  // Config panel tab
   configPanelTab: 'settings' | 'input' | 'output' | 'error';
-
-  // Node picker modal
-  isNodePickerOpen: boolean;
-  nodePickerInsertAfter: number;
-  nodePickerContext: {
-    parentId?: string;
-    branchSide?: 'true' | 'false';
-    isLoopBody?: boolean;
-  };
-  nodePickerStep: 'app' | 'event';
-  nodePickerSelectedApp: string | null;
 
   // Variable picker
   isVariablePickerOpen: boolean;
   variablePickerTargetField: string | null;
 
-  // Collapse state
-  collapsedBranches: Set<string>;
-  collapsedLoops: Set<string>;
-
   // Actions
-  openConfigPanel: (nodeId: string) => void;
-  closeConfigPanel: () => void;
   setConfigTab: (tab: string) => void;
-  openNodePicker: (insertAfterStep: number, context?: NodePickerContext) => void;
-  closeNodePicker: () => void;
-  selectApp: (appType: string) => void;
   openVariablePicker: (fieldName: string) => void;
   closeVariablePicker: () => void;
-  toggleBranchCollapse: (ifNodeId: string) => void;
-  toggleLoopCollapse: (loopNodeId: string) => void;
 }
 ```
 
@@ -370,166 +361,121 @@ const queryKeys = {
 | Save button | Disabled when not dirty |
 | Test Run button | Triggers manual execution → execution monitor |
 
-#### 5.2.2 Workflow Canvas
+#### 5.2.2 Workflow Canvas (React Flow)
 
-The canvas is a centered vertical column of step cards, branch containers, and loop containers.
+The canvas is a full-viewport React Flow instance with nodes flowing left-to-right. Nodes are connected by edges with "+" insertion points at edge midpoints.
+
+**Canvas Configuration:**
+- Direction: Left-to-right (LR)
+- Background: Dots grid pattern
+- Controls: Zoom in/out, fit-to-view, minimap (bottom-right)
+- Node spacing: ~250px horizontal, ~150px vertical (for branches)
+- Node dimensions: ~220px wide x ~80px tall
+- Snap to grid: 20px intervals
+- Pan: Click + drag on background
+- Zoom: Scroll wheel, pinch, or controls
+
+**Auto-Layout (dagre):**
+- Runs automatically on: initial load, add node, delete node
+- Preserves user-dragged positions until next structural change
+- Direction: `rankdir: 'LR'` (left-to-right)
+- Node separation: `nodesep: 80`, `ranksep: 250`
+- Manual re-layout via toolbar button
 
 **Initial State (new workflow):**
 
 ```
-┌─────────────────────────────┐
-│  ⚡ 1. Trigger               │  ← Purple border
-│  Select the event that       │
-│  starts your workflow        │
-└─────────────────────────────┘
-         |
-        [+]
-         |
-┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
-│  ⚡ 2. Action                │  ← Dashed border (placeholder)
-│  Select the event for        │
-│  your workflow to run        │
-└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
-         |
-        [+]
+┌─────────────┐         ┌─────────────┐
+│ ⚡ Trigger   │──[+]──→│ ⚙ Action    │──[+]
+│ (configure) │         │ (configure) │
+└─────────────┘         └─────────────┘
 ```
 
 **Branch Layout (IF node with true/false branches and Merge):**
 
 ```
-┌──────────────────────────────────┐
-│  🔀 2. IF — Check Message Type   │
-│  If text contains "/start"       │
-└──────────────────────────────────┘
-         |
-    ┌────┴────┐
-┌───┴─────────────────────────────┐
-│                                  │
-│  ┌─ ✓ True ────┐ ┌─ ✗ False ──┐ │
-│  │ ┌──────────┐│ │ ┌─────────┐│ │
-│  │ │2a. Send  ││ │ │2b. Log  ││ │
-│  │ │ Welcome  ││ │ │ to Sheet││ │
-│  │ └──────────┘│ │ └─────────┘│ │
-│  │     [+]     │ │    [+]     │ │
-│  └─────────────┘ └────────────┘ │
-│                                  │
-└──────────────────────────────────┘
-         |
-┌──────────────────────────────────┐
-│  ⤵ 3. Merge — Combine Results   │
-└──────────────────────────────────┘
-         |
-        [+]
+                         ┌──────────────┐
+                    ┌──→ │ 2a. Send     │ ───┐
+                    │    │ Welcome      │    │
+                    │    └──────────────┘    │
+┌───────────────┐  True                     │  ┌───────────────┐
+│ 🔀 2. IF      │──┤    (green edge)        ├─→│ ⤵ 3. Merge    │──[+]
+│ Check Message │  │                        │  └───────────────┘
+└───────────────┘  False  ┌──────────────┐  │
+                    │    │ 2b. Log      │   │
+                    └──→ │ to Sheet     │ ──┘
+                         └──────────────┘
+                          (gray edge)
 ```
 
-**Loop Layout (with body nodes inside a visual container):**
+**Loop Layout (body nodes connected inline):**
 
 ```
-┌──────────────────────────────────┐
-│  🔄 4. Loop — Process Each Row   │
-│  For each item in rows           │
-└──────────────────────────────────┘
-┌─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
-│  Loop Body                (↕)    │  ← Light blue bg, collapse toggle
-│                                  │
-│  ┌──────────────────────────┐    │
-│  │ 4.1 HTTP Request         │    │
-│  │     Call API for item    │    │
-│  └──────────────────────────┘    │
-│           |                      │
-│          [+]                     │
-│           |                      │
-│  ┌──────────────────────────┐    │
-│  │ 4.2 Wait — 2 seconds     │    │
-│  │     ⏱ 00:02              │    │
-│  └──────────────────────────┘    │
-│          [+]                     │
-│                                  │
-└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
-         |
-        [+]
+┌───────────────┐  Loop   ┌──────────────┐         ┌──────────────┐
+│ 🔄 4. Loop    │──- - -→ │ 4.1 HTTP     │──[+]──→ │ 4.2 Wait     │──[+]
+│ Process Rows  │ (blue)  │ Request      │         │ 2 seconds    │
+└───────────────┘         └──────────────┘         └──────────────┘
 ```
 
-**Wait Node Card:**
+**Custom React Flow Node Types:**
 
-```
-┌──────────────────────────────────┐
-│  ⏸ 5. Wait — Rate Limit         │  ← Blue border
-│  Pause for 30 seconds  ⏱ 00:30  │
-└──────────────────────────────────┘
-```
+All custom nodes share a common `NodeContent` component rendered inside the React Flow node wrapper.
 
-**Merge Node Card:**
-
-```
-    ┌───┐     ┌───┐
-    │   │     │   │       ← Converging lines from branches
-    └─┬─┘     └─┬─┘
-      └─────┬───┘
-┌───────────┴──────────────────────┐
-│  ⤵ 3. Merge — Choose Branch     │  ← Blue border
-│  Pass through executed branch    │
-└──────────────────────────────────┘
-```
-
-**Node Card Properties:**
-- `status`: 'configured' | 'needs-config' | 'error' | 'placeholder'
-- `borderState`: 'default' | 'trigger' | 'editing' | 'placeholder' | 'flowControl'
-- `stepLabel`: string (e.g., "2a.1" for branch sub-numbering)
-- `nestingDepth`: number (for visual indentation)
-- `appName`, `appIcon`, `eventName`
-- `onClick`, `onMenuAction`
-
-**Step Connector:**
 ```typescript
-interface StepConnectorProps {
-  onInsert: () => void;
-  connectorType: 'default' | 'branch-split' | 'branch-merge' | 'loop-start' | 'loop-end';
+// Node data passed to React Flow
+interface FlowNodeData {
+  workflowNode: WorkflowNode;     // Full node data
+  stepNumber: string;              // Computed step label (e.g., "2a")
+  onSelect: (nodeId: string) => void;
+  onDelete: (nodeId: string) => void;
 }
+
+// TriggerNode: purple left accent, output handle only (right side)
+// ActionNode: blue left accent, input handle (left) + output handle (right)
+// FlowControlNode: amber left accent, multiple handles:
+//   - IF: input (left), true handle (top-right), false handle (bottom-right)
+//   - Loop: input (left), loopBody handle (right), loopComplete handle (bottom-right)
+//   - Merge: branchA handle (top-left), branchB handle (bottom-left), output (right)
+//   - Wait: input (left), output (right)
 ```
 
-**Branch Container:**
-```typescript
-interface BranchContainerProps {
-  ifNodeId: string;
-  trueBranchNodes: WorkflowNode[];
-  falseBranchNodes: WorkflowNode[];
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
-  onAddToBranch: (side: 'true' | 'false') => void;
-}
-```
+**Custom Edge Types:**
 
-**Loop Container:**
 ```typescript
-interface LoopContainerProps {
-  loopNodeId: string;
-  bodyNodes: WorkflowNode[];
-  loopConfig: { mode: string; source?: string; count?: number };
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
-  onAddToBody: () => void;
-}
+// DefaultEdge: smoothstep edge with a "+" button at midpoint
+//   - Click "+" opens NodePickerModal with edge context
+//   - Inserting a node splits the edge into two edges
+
+// BranchEdge: colored + labeled smoothstep edge
+//   - Green for 'true' branch, gray for 'false' branch
+//   - Blue dashed for 'loop' body connection
+//   - Label displayed near the source end
+//   - Also has "+" button at midpoint
+```
 ```
 
 #### 5.2.3 Node Picker Modal
 
-Full-screen overlay modal with three sections in Step 1:
+Full-screen overlay modal triggered by clicking "+" buttons on edges or from the toolbar.
+
+**Context:** The picker receives edge context (source node, source handle, target node) so it knows where to insert the new node.
 
 **Sections:** "Popular", "Tools & Logic", "Flow Control"
 
 Flow Control section contains: Loop, Wait, Merge.
 
 **Context-aware filtering rules:**
-- Step 1 (trigger position): only trigger-capable nodes
-- Inside Loop body at max nesting depth: hide Loop and IF nodes
+- First node (no trigger yet): only trigger-capable nodes
+- On an IF output edge: only non-trigger nodes
+- At max nesting depth: hide Loop and IF nodes
 - After an IF with no Merge: show hint to add Merge
 
-On selecting a flow control node:
-- **IF**: Creates node + empty branch container below (with true/false placeholders) + auto-inserts a Merge node
-- **Loop**: Creates node + empty loop body container below (with placeholder)
-- **Merge**: Creates node with connectors from open branches
-- **Wait**: Creates standard node
+**On selecting a node type:**
+- **IF**: Creates IF node at edge position + creates two output handles (true/false). Auto-inserts a Merge node after both branches converge. Runs auto-layout.
+- **Loop**: Creates Loop node. First body node can be added via the "Loop" edge's "+" button. Runs auto-layout.
+- **Merge**: Creates Merge node and connects incoming branch edges.
+- **Standard nodes**: Created at edge position, edge is split into source→new→target. Runs auto-layout.
+- **Wait**: Created like standard node.
 
 #### 5.2.4 Config Panel
 
@@ -660,7 +606,7 @@ Popup showing available data from previous steps, grouped by step.
 
 #### 5.3.2 Execution Step List
 
-Same structured layout as the editor, but cards show execution status. Branches show which path was taken.
+Same React Flow canvas layout as the editor, but in read-only mode. Nodes show execution status via border colors and status indicators. Edges animate to show execution flow direction.
 
 **Execution Node Card States:**
 
@@ -669,54 +615,41 @@ Same structured layout as the editor, but cards show execution status. Branches 
 | Success | Green border (3px), checkmark, duration |
 | Failed | Red border (3px), X mark, error text, `#fff5f5` bg |
 | Running | Blue border (3px), spinner, pulsing |
-| Skipped | Gray border (1px), gray bg, "Skipped" label |
+| Skipped | Gray border (1px), gray bg, "Skipped" label, reduced opacity |
 | Pending | Default border, no indicator |
 | Waiting | Amber border (3px), clock icon, countdown timer |
 
-**Branch Execution Visualization:**
+**Branch Execution Visualization (horizontal):**
 
 ```
-┌──────────────────────────────────┐
-│  🔀 2. IF — Check Message  ✓ 12ms│  ← Green (evaluated successfully)
-│  Condition: TRUE                  │  ← Shows evaluation result
-└──────────────────────────────────┘
-         |
-┌──────────────────────────────────┐
-│  ┌─ ✓ True (ACTIVE)┐ ┌─ ✗ False┐│
-│  │ ┌──────────────┐│ │ ┌──────┐││  ← True branch green, false grayed
-│  │ │2a. Send  ✓   ││ │ │ Skip ││ │
-│  │ │ 45ms         ││ │ │ ──── │││
-│  │ └──────────────┘│ │ └──────┘││
-│  └─────────────────┘ └─────────┘│
-└──────────────────────────────────┘
+                            ┌─────────────────┐
+                       ┌──→ │ 2a. Send  ✓ 45ms│ ──┐    Green border, active
+                       │    └─────────────────┘    │
+┌──────────────────┐  True                         │  ┌──────────────┐
+│ 🔀 IF  ✓ 12ms    │──┤   (green animated edge)   ├─→│ ⤵ Merge ✓    │
+│ Result: TRUE      │  │                           │  └──────────────┘
+└──────────────────┘  False ┌─────────────────┐    │
+                       └──→ │ 2b. Log  SKIP   │ ──┘    Gray, skipped
+                            └─────────────────┘
+                             (gray dimmed edge)
 ```
 
-**Loop Execution Visualization:**
+**Loop Execution Visualization (horizontal, inline nodes):**
 
 ```
-┌──────────────────────────────────┐
-│  🔄 4. Loop  ✓  3/3 items  1.2s │  ← Shows progress and total time
-└──────────────────────────────────┘
-┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
-│  Iteration: [◀ 1 of 3 ▶]        │  ← Iteration browser
-│                                  │
-│  ┌──────────────────────────┐    │
-│  │ 4.1 HTTP Request  ✓ 380ms│    │  ← Shows data for selected iteration
-│  └──────────────────────────┘    │
-│  ┌──────────────────────────┐    │
-│  │ 4.2 Wait  ✓  2000ms      │    │
-│  └──────────────────────────┘    │
-│                                  │
-│  Summary: 3 ✓, 0 ✗              │  ← Iteration summary
-└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+┌───────────────────┐  Loop  ┌────────────────────┐     ┌─────────────────┐
+│ 🔄 Loop ✓         │──- -→ │ 4.1 HTTP ✓ 380ms   │──→ │ 4.2 Wait ✓ 2s   │
+│ 3/3 items  1.2s   │       │ (iter 1 of 3)       │     │                 │
+└───────────────────┘       └────────────────────┘     └─────────────────┘
+  Click to browse iterations in detail panel
 ```
 
 **Wait Execution Visualization (during wait):**
 
 ```
 ┌──────────────────────────────────┐
-│  ⏸ 5. Wait — Rate Limit         │  ← Amber border (waiting)
-│  ⏱ Waiting... 18s remaining      │  ← Live countdown
+│  ⏸ Wait — Rate Limit             │  ← Amber border, pulsing
+│  ⏱ 18s remaining                 │  ← Live countdown
 │  Resumes at 3:42:30 PM           │
 └──────────────────────────────────┘
 ```
@@ -803,34 +736,35 @@ Same as original spec. No changes needed for branching/loop/wait/merge features.
 
 ```
 1. User creates workflow, configures trigger
-2. User clicks "+" to add a step
+2. User clicks [+] on the edge after trigger
 3. Node Picker opens → Tools & Logic → IF
-4. IF node appears with branch container below (true/false placeholders)
-5. A Merge node is auto-inserted below the branch container
-6. User clicks [+] inside the True branch
-7. Node Picker opens (context: inside true branch)
+4. IF node appears on canvas with true/false output handles
+5. A Merge node is auto-inserted to the right, connected to both branches
+6. User clicks [+] on the green "True" edge
+7. Node Picker opens (context: IF true branch)
 8. User selects Telegram → Send Message
-9. Node appears inside true branch container
-10. User clicks [+] inside the False branch
+9. Node appears between IF and Merge on the true (upper) path
+10. User clicks [+] on the gray "False" edge
 11. User selects Google Sheets → Append Row
-12. Node appears inside false branch container
-13. User configures the IF condition, branch nodes, and Merge mode
-14. User clicks Test Run → sees execution flow through one branch
+12. Node appears between IF and Merge on the false (lower) path
+13. User drags nodes to fine-tune positions if desired
+14. User configures the IF condition, branch nodes, and Merge mode
+15. User clicks Test Run → sees execution flow through one branch
 ```
 
 ### 6.2 Creating a Loop Workflow
 
 ```
 1. User has a trigger that produces an array (e.g., Google Sheets Read Rows)
-2. User clicks "+" and selects Flow Control → Loop → For Each Item
-3. Loop node appears with loop body container below (empty placeholder)
+2. User clicks [+] on the edge after trigger and selects Flow Control → Loop
+3. Loop node appears on canvas with a "Loop" edge extending to the right
 4. User configures Loop source: {{ $steps[1].json.rows }}
-5. User clicks [+] inside the loop body
+5. User clicks [+] on the blue dashed "Loop" edge
 6. Adds HTTP Request node (uses $item to reference current row)
-7. User clicks [+] inside loop body again
+7. User clicks [+] on the edge after HTTP Request
 8. Adds Wait node (2 seconds between API calls for rate limiting)
 9. User clicks Test Run → sees loop iterate through items
-10. Execution monitor shows iteration browser: 1 of 15, 2 of 15, etc.
+10. Execution monitor shows iteration data in detail panel
 ```
 
 ### 6.3 Using a Wait Node
@@ -889,9 +823,9 @@ Same as original spec, plus:
 
 | Requirement | Implementation |
 |-------------|----------------|
-| Keyboard navigation | All elements focusable via Tab, including branch and loop body nodes. |
-| Focus trapping | Modals trap focus. Branch/loop containers are navigable with arrow keys. |
-| Screen reader labels | Branch containers: "True branch with N steps", "False branch with N steps". Loop: "Loop body with N steps, iterates over [source]". |
+| Keyboard navigation | All nodes focusable via Tab on the React Flow canvas. Arrow keys for canvas pan. |
+| Focus trapping | Modals trap focus. React Flow canvas supports keyboard node selection. |
+| Screen reader labels | Nodes: "[type] node, step [N], [status]". Edges: "[source] connects to [target] via [handle type]". |
 | Color contrast | All text meets WCAG 2.1 AA. Branch labels not color-only (include ✓/✗ icons). |
 | Status announcements | Execution status, loop progress, and wait countdowns announced via aria-live. |
 | Reduced motion | Respect `prefers-reduced-motion`. Disable animations. |
@@ -925,7 +859,8 @@ Same format as original spec. Additional error examples for new node types:
 | Workflow editor load | < 500ms after navigation | Performance.mark |
 | Node picker modal open | < 100ms | Perceived responsiveness |
 | Config panel slide | 200ms CSS transition | CSS |
-| Branch container render | < 200ms for 3 nesting levels | Performance.mark |
+| React Flow canvas render | < 200ms for 50 nodes with auto-layout | Performance.mark |
+| Auto-layout (dagre) | < 100ms for 50 nodes | Performance.mark |
 | Loop iteration browser | < 100ms to switch iterations | Perceived responsiveness |
 | WebSocket reconnect | < 3 seconds | Automatic with exponential backoff |
 
@@ -938,4 +873,4 @@ Same format as original spec. Additional error examples for new node types:
 - **Debounced saves**: Auto-save debounced to 2 seconds after last change
 - **Virtual scrolling**: If execution history exceeds 100 rows, use `@tanstack/react-virtual`
 - **Image optimization**: App icons served as optimized SVGs or small PNGs
-- **Branch/loop collapse**: Collapsed containers don't render their child components
+- **React Flow viewport culling**: React Flow only renders nodes visible in the viewport, handling large workflows efficiently
