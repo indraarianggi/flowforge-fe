@@ -6,6 +6,11 @@ import type { Workflow, WorkflowNode, WorkflowEdge } from "@/types"
 
 function getWorkflows(): Workflow[] {
   const stored = storage.getList<Workflow>(STORAGE_KEYS.workflows)
+  // Migration: if old format (has nodeOrder but no edges), re-seed with new edge-based format
+  if (stored.length > 0 && 'nodeOrder' in stored[0] && !('edges' in stored[0])) {
+    storage.set(STORAGE_KEYS.workflows, seedWorkflows)
+    return seedWorkflows
+  }
   if (stored.length === 0) {
     storage.set(STORAGE_KEYS.workflows, seedWorkflows)
     return seedWorkflows
