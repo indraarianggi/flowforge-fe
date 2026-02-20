@@ -1,8 +1,12 @@
 // src/stores/editorStore.ts
-import { create } from "zustand"
-import type { Workflow, WorkflowNode } from "@/types"
+import { create } from 'zustand'
+import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
+import type { Node, Edge, OnNodesChange, OnEdgesChange, NodeChange, EdgeChange } from '@xyflow/react'
+import type { Workflow, WorkflowNode, WorkflowEdge } from '@/types'
+import { autoLayout } from '@/lib/autoLayout'
+import { toRFNodes, toRFEdges, fromRFNodes, getStepNumbers } from '@/lib/flowUtils'
+import type { FlowNodeData } from '@/lib/flowUtils'
 
-/** Edge-based picker context — used by React Flow edge + buttons (Phase 3+) */
 export interface PickerContext {
   sourceNodeId: string
   sourceHandle?: string
@@ -10,153 +14,224 @@ export interface PickerContext {
 }
 
 interface EditorState {
+  // Workflow data
   workflow: Workflow | null
+
+  // React Flow state
+  rfNodes: Node<FlowNodeData>[]
+  rfEdges: Edge[]
+  onNodesChange: OnNodesChange
+  onEdgesChange: OnEdgesChange
+
+  // UI state
   selectedNodeId: string | null
   isPanelOpen: boolean
   isPickerOpen: boolean
-  pickerInsertAfterNodeId: string | null // null = append to top-level
-  pickerParentNodeId: string | null       // for inserting into branch/loop
-  pickerBranchType: "true" | "false" | "body" | null
+  pickerContext: PickerContext | null
 
-  // Actions
-  setWorkflow: (workflow: Workflow) => void
-  selectNode: (nodeId: string | null) => void
-  openPanel: (nodeId: string) => void
-  closePanel: () => void
-  openPicker: (opts: PickerContext | {
-    insertAfterNodeId: string | null
-    parentNodeId?: string | null
-    branchType?: "true" | "false" | "body" | null
-  }) => void
-  closePicker: () => void
-  updateNodeConfig: (nodeId: string, config: WorkflowNode["config"]) => void
-  updateNodeStatus: (nodeId: string, status: WorkflowNode["status"]) => void
-  addNode: (node: WorkflowNode, insertAfterNodeId: string | null, parentNodeId?: string | null, branchType?: "true" | "false" | "body" | null) => void
+  // Actions — Workflow
+  loadWorkflow: (workflow: Workflow) => void
+  setName: (name: string) => void
+
+  // Actions — Node CRUD
+  addNode: (node: WorkflowNode, context: PickerContext) => void
+  addIfNode: (node: WorkflowNode, context: PickerContext) => void
   deleteNode: (nodeId: string) => void
+  updateNodeConfig: (nodeId: string, config: WorkflowNode['config']) => void
+  updateNodeStatus: (nodeId: string, status: WorkflowNode['status']) => void
+
+  // Actions — Canvas
+  runAutoLayout: () => void
+  selectNode: (nodeId: string) => void
+  closePanel: () => void
+  openPicker: (context: PickerContext) => void
+  closePicker: () => void
+
+  // Actions — Sync
+  syncWorkflowFromRF: () => void
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+/** Re-compute RF nodes and edges from a workflow (runs auto-layout internally) */
+function rebuildRF(workflow: Workflow): { rfNodes: Node<FlowNodeData>[]; rfEdges: Edge[] } {
+  const stepNumbers = getStepNumbers(workflow.nodes, workflow.edges)
+  const rfNodes = toRFNodes(workflow.nodes, stepNumbers)
+  const rfEdges = toRFEdges(workflow.edges)
+  return { rfNodes, rfEdges }
+}
+
+export const useEditorStore = create<EditorState>((set, get) => ({
   workflow: null,
+  rfNodes: [],
+  rfEdges: [],
   selectedNodeId: null,
   isPanelOpen: false,
   isPickerOpen: false,
-  pickerInsertAfterNodeId: null,
-  pickerParentNodeId: null,
-  pickerBranchType: null,
+  pickerContext: null,
 
-  setWorkflow: (workflow) => set({ workflow }),
-
-  selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
-
-  openPanel: (nodeId) => set({ selectedNodeId: nodeId, isPanelOpen: true }),
-
-  closePanel: () => set({ isPanelOpen: false, selectedNodeId: null }),
-
-  openPicker: (opts) => {
-    // Support both legacy (insertAfterNodeId) and new edge-based (sourceNodeId) call shapes
-    if ('sourceNodeId' in opts) {
-      set({
-        isPickerOpen: true,
-        pickerInsertAfterNodeId: opts.sourceNodeId,
-        pickerParentNodeId: null,
-        pickerBranchType: null,
-      })
-    } else {
-      const { insertAfterNodeId, parentNodeId = null, branchType = null } = opts
-      set({
-        isPickerOpen: true,
-        pickerInsertAfterNodeId: insertAfterNodeId,
-        pickerParentNodeId: parentNodeId,
-        pickerBranchType: branchType,
-      })
-    }
+  onNodesChange: (changes: NodeChange[]) => {
+    set((state) => ({
+      rfNodes: applyNodeChanges(changes, state.rfNodes) as Node<FlowNodeData>[],
+    }))
   },
 
-  closePicker: () =>
-    set({
-      isPickerOpen: false,
-      pickerInsertAfterNodeId: null,
-      pickerParentNodeId: null,
-      pickerBranchType: null,
-    }),
+  onEdgesChange: (changes: EdgeChange[]) => {
+    set((state) => ({
+      rfEdges: applyEdgeChanges(changes, state.rfEdges),
+    }))
+  },
 
-  updateNodeConfig: (nodeId, config) =>
+  loadWorkflow: (workflow) => {
+    const laidOut = autoLayout(workflow.nodes, workflow.edges)
+    const wfWithPositions = { ...workflow, nodes: laidOut }
+    const { rfNodes, rfEdges } = rebuildRF(wfWithPositions)
+    set({ workflow: wfWithPositions, rfNodes, rfEdges })
+  },
+
+  setName: (name) =>
     set((state) => {
       if (!state.workflow) return state
-      return {
-        workflow: {
-          ...state.workflow,
-          nodes: state.workflow.nodes.map((n) =>
-            n.id === nodeId ? { ...n, config } : n
-          ),
-        },
-      }
+      return { workflow: { ...state.workflow, name } }
     }),
 
-  updateNodeStatus: (nodeId, status) =>
-    set((state) => {
-      if (!state.workflow) return state
-      return {
-        workflow: {
-          ...state.workflow,
-          nodes: state.workflow.nodes.map((n) =>
-            n.id === nodeId ? { ...n, status } : n
-          ),
-        },
-      }
-    }),
-
-  addNode: (node, insertAfterNodeId, parentNodeId, branchType) =>
+  addNode: (node, context) =>
     set((state) => {
       if (!state.workflow) return state
       const wf = state.workflow
+      const { sourceNodeId, sourceHandle, targetNodeId } = context
 
-      // Top-level insertion
-      if (!parentNodeId) {
-        const order = [...wf.nodeOrder]
-        const insertIdx = insertAfterNodeId
-          ? order.indexOf(insertAfterNodeId) + 1
-          : order.length
-        order.splice(insertIdx, 0, node.id)
-        return {
-          workflow: {
-            ...wf,
-            nodes: [...wf.nodes, node],
-            nodeOrder: order,
-          },
-        }
+      const newNodes = [...wf.nodes, { ...node, position: { x: 0, y: 0 } }]
+      let newEdges = [...wf.edges]
+
+      if (targetNodeId) {
+        // Split existing edge: remove source→target, add source→new and new→target
+        newEdges = newEdges.filter(
+          (e) => !(
+            e.source === sourceNodeId &&
+            e.target === targetNodeId &&
+            (!sourceHandle || e.sourceHandle === sourceHandle || (!e.sourceHandle && sourceHandle === 'main'))
+          )
+        )
+        newEdges.push({
+          id: `e-${Date.now()}-a`,
+          source: sourceNodeId,
+          target: node.id,
+          sourceHandle: sourceHandle !== 'main' ? sourceHandle : undefined,
+          type: sourceHandle === 'true' || sourceHandle === 'false' ? 'branch'
+            : sourceHandle === 'loopBody' ? 'loop'
+            : undefined,
+          label: sourceHandle === 'true' ? 'True'
+            : sourceHandle === 'false' ? 'False'
+            : sourceHandle === 'loopBody' ? 'Loop'
+            : undefined,
+        })
+        newEdges.push({
+          id: `e-${Date.now()}-b`,
+          source: node.id,
+          target: targetNodeId,
+        })
+      } else {
+        // Append: just add source→new edge
+        newEdges.push({
+          id: `e-${Date.now()}`,
+          source: sourceNodeId,
+          target: node.id,
+          sourceHandle: sourceHandle !== 'main' ? sourceHandle : undefined,
+          type: sourceHandle === 'true' || sourceHandle === 'false' ? 'branch'
+            : sourceHandle === 'loopBody' ? 'loop'
+            : undefined,
+          label: sourceHandle === 'true' ? 'True'
+            : sourceHandle === 'false' ? 'False'
+            : sourceHandle === 'loopBody' ? 'Loop'
+            : undefined,
+        })
       }
 
-      // Inserting into a branch or loop body
-      const nodes = wf.nodes.map((n) => {
-        if (n.id !== parentNodeId) return n
-        if (branchType === "true") {
-          const ids = [...(n.trueBranchNodeIds ?? [])]
-          const idx = insertAfterNodeId ? ids.indexOf(insertAfterNodeId) + 1 : ids.length
-          ids.splice(idx, 0, node.id)
-          return { ...n, trueBranchNodeIds: ids }
-        }
-        if (branchType === "false") {
-          const ids = [...(n.falseBranchNodeIds ?? [])]
-          const idx = insertAfterNodeId ? ids.indexOf(insertAfterNodeId) + 1 : ids.length
-          ids.splice(idx, 0, node.id)
-          return { ...n, falseBranchNodeIds: ids }
-        }
-        if (branchType === "body") {
-          const ids = [...(n.bodyNodeIds ?? [])]
-          const idx = insertAfterNodeId ? ids.indexOf(insertAfterNodeId) + 1 : ids.length
-          ids.splice(idx, 0, node.id)
-          return { ...n, bodyNodeIds: ids }
-        }
-        return n
+      const updatedWf = { ...wf, nodes: newNodes, edges: newEdges }
+      const laidOut = autoLayout(updatedWf.nodes, updatedWf.edges)
+      const wfFinal = { ...updatedWf, nodes: laidOut }
+      const { rfNodes, rfEdges } = rebuildRF(wfFinal)
+
+      return { workflow: wfFinal, rfNodes, rfEdges }
+    }),
+
+  addIfNode: (ifNode, context) =>
+    set((state) => {
+      if (!state.workflow) return state
+      const wf = state.workflow
+      const { sourceNodeId, sourceHandle, targetNodeId } = context
+      const ts = Date.now()
+      const mergeId = `merge-${ts}`
+
+      // Auto-create a companion Merge node
+      const mergeNode: WorkflowNode = {
+        id: mergeId,
+        type: 'merge',
+        label: 'Merge Branches',
+        category: 'flow_control',
+        status: 'unconfigured',
+        config: { strategy: 'choose_branch' },
+        position: { x: 0, y: 0 },
+      }
+
+      const newNodes = [
+        ...wf.nodes,
+        { ...ifNode, position: { x: 0, y: 0 } },
+        mergeNode,
+      ]
+
+      // Remove the edge being split (source → target), if any
+      let newEdges = targetNodeId
+        ? wf.edges.filter(
+            (e) => !(
+              e.source === sourceNodeId &&
+              e.target === targetNodeId &&
+              (!sourceHandle || e.sourceHandle === sourceHandle || (!e.sourceHandle && sourceHandle === 'main'))
+            )
+          )
+        : [...wf.edges]
+
+      // source → IF
+      newEdges.push({
+        id: `e-${ts}-1`,
+        source: sourceNodeId,
+        target: ifNode.id,
+        sourceHandle: sourceHandle !== 'main' ? sourceHandle : undefined,
       })
-
-      return {
-        workflow: {
-          ...wf,
-          nodes: [...nodes, { ...node, parentId: parentNodeId, branchType: branchType ?? undefined }],
-        },
+      // IF → Merge (true branch)
+      newEdges.push({
+        id: `e-${ts}-2`,
+        source: ifNode.id,
+        target: mergeId,
+        sourceHandle: 'true',
+        targetHandle: 'branchA',
+        type: 'branch',
+        label: 'True',
+      })
+      // IF → Merge (false branch)
+      newEdges.push({
+        id: `e-${ts}-3`,
+        source: ifNode.id,
+        target: mergeId,
+        sourceHandle: 'false',
+        targetHandle: 'branchB',
+        type: 'branch',
+        label: 'False',
+      })
+      // Merge → original target (if any)
+      if (targetNodeId) {
+        newEdges.push({
+          id: `e-${ts}-4`,
+          source: mergeId,
+          target: targetNodeId,
+        })
       }
+
+      const updatedWf = { ...wf, nodes: newNodes, edges: newEdges }
+      const laidOut = autoLayout(updatedWf.nodes, updatedWf.edges)
+      const wfFinal = { ...updatedWf, nodes: laidOut }
+      const { rfNodes, rfEdges } = rebuildRF(wfFinal)
+
+      return { workflow: wfFinal, rfNodes, rfEdges }
     }),
 
   deleteNode: (nodeId) =>
@@ -164,24 +239,89 @@ export const useEditorStore = create<EditorState>((set) => ({
       if (!state.workflow) return state
       const wf = state.workflow
 
-      // Remove from nodes array and from all id lists
-      const nodes = wf.nodes
-        .filter((n) => n.id !== nodeId)
-        .map((n) => ({
-          ...n,
-          trueBranchNodeIds: n.trueBranchNodeIds?.filter((id) => id !== nodeId),
-          falseBranchNodeIds: n.falseBranchNodeIds?.filter((id) => id !== nodeId),
-          bodyNodeIds: n.bodyNodeIds?.filter((id) => id !== nodeId),
-        }))
+      // Find incoming and outgoing edges
+      const incomingEdges = wf.edges.filter((e) => e.target === nodeId)
+      const outgoingEdges = wf.edges.filter((e) => e.source === nodeId)
+
+      // Remove the node
+      const newNodes = wf.nodes.filter((n) => n.id !== nodeId)
+
+      // Remove all edges involving this node
+      let newEdges = wf.edges.filter((e) => e.source !== nodeId && e.target !== nodeId)
+
+      // Reconnect: for each incoming→deleted→outgoing, create incoming→outgoing
+      for (const inc of incomingEdges) {
+        for (const out of outgoingEdges) {
+          newEdges.push({
+            id: `e-${Date.now()}-${inc.source}-${out.target}`,
+            source: inc.source,
+            target: out.target,
+            sourceHandle: inc.sourceHandle,
+            type: inc.type,
+            label: inc.label,
+          })
+        }
+      }
+
+      const updatedWf = { ...wf, nodes: newNodes, edges: newEdges }
+      const laidOut = autoLayout(updatedWf.nodes, updatedWf.edges)
+      const wfFinal = { ...updatedWf, nodes: laidOut }
+      const { rfNodes, rfEdges } = rebuildRF(wfFinal)
 
       return {
-        workflow: {
-          ...wf,
-          nodes,
-          nodeOrder: wf.nodeOrder.filter((id) => id !== nodeId),
-        },
+        workflow: wfFinal,
+        rfNodes,
+        rfEdges,
         selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
         isPanelOpen: state.selectedNodeId === nodeId ? false : state.isPanelOpen,
       }
+    }),
+
+  updateNodeConfig: (nodeId, config) =>
+    set((state) => {
+      if (!state.workflow) return state
+      const newNodes = state.workflow.nodes.map((n) =>
+        n.id === nodeId ? { ...n, config } : n
+      )
+      const updatedWf = { ...state.workflow, nodes: newNodes }
+      const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
+      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers)
+      return { workflow: updatedWf, rfNodes }
+    }),
+
+  updateNodeStatus: (nodeId, status) =>
+    set((state) => {
+      if (!state.workflow) return state
+      const newNodes = state.workflow.nodes.map((n) =>
+        n.id === nodeId ? { ...n, status } : n
+      )
+      const updatedWf = { ...state.workflow, nodes: newNodes }
+      const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
+      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers)
+      return { workflow: updatedWf, rfNodes }
+    }),
+
+  runAutoLayout: () =>
+    set((state) => {
+      if (!state.workflow) return state
+      const laidOut = autoLayout(state.workflow.nodes, state.workflow.edges)
+      const wf = { ...state.workflow, nodes: laidOut }
+      const { rfNodes, rfEdges } = rebuildRF(wf)
+      return { workflow: wf, rfNodes, rfEdges }
+    }),
+
+  selectNode: (nodeId) => set({ selectedNodeId: nodeId, isPanelOpen: true }),
+
+  closePanel: () => set({ isPanelOpen: false, selectedNodeId: null }),
+
+  openPicker: (context) => set({ isPickerOpen: true, pickerContext: context }),
+
+  closePicker: () => set({ isPickerOpen: false, pickerContext: null }),
+
+  syncWorkflowFromRF: () =>
+    set((state) => {
+      if (!state.workflow) return state
+      const updatedNodes = fromRFNodes(state.workflow.nodes, state.rfNodes)
+      return { workflow: { ...state.workflow, nodes: updatedNodes } }
     }),
 }))
