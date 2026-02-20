@@ -39,6 +39,7 @@ export function WorkflowEditorPage() {
     loadWorkflow,
     selectNode,
     closePanel,
+    openPicker,
     closePicker,
     addNode,
     addIfNode,
@@ -80,6 +81,10 @@ export function WorkflowEditorPage() {
 
   function handleNodeClick(_event: React.MouseEvent, node: Node) {
     selectNode(node.id)
+  }
+
+  function handleAddTrigger() {
+    openPicker({})
   }
 
   function handleNodeSelected(node: WorkflowNode) {
@@ -174,6 +179,7 @@ export function WorkflowEditorPage() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={handleNodeClick}
+            onAddTrigger={handleAddTrigger}
           />
         </div>
 

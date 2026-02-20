@@ -5,6 +5,8 @@ import type { WorkflowNode, WorkflowEdge } from '@/types'
 export interface FlowNodeData {
   workflowNode: WorkflowNode
   stepNumber: string
+  /** True when this node has no outgoing edges — used to render an "add after" button */
+  isTerminalNode: boolean
   [key: string]: unknown
 }
 
@@ -22,8 +24,10 @@ function rfNodeType(node: WorkflowNode): string {
  */
 export function toRFNodes(
   nodes: WorkflowNode[],
-  stepNumbers: Map<string, string>
+  stepNumbers: Map<string, string>,
+  edges: WorkflowEdge[]
 ): Node<FlowNodeData>[] {
+  const nodesWithOutgoingEdge = new Set(edges.map((e) => e.source))
   return nodes.map((wn) => ({
     id: wn.id,
     type: rfNodeType(wn),
@@ -31,6 +35,7 @@ export function toRFNodes(
     data: {
       workflowNode: wn,
       stepNumber: stepNumbers.get(wn.id) ?? '?',
+      isTerminalNode: !nodesWithOutgoingEdge.has(wn.id),
     },
   }))
 }

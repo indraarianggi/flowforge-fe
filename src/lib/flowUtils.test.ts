@@ -19,7 +19,7 @@ describe('toRFNodes', () => {
   it('converts WorkflowNodes to React Flow nodes with correct structure', () => {
     const nodes = [makeNode('n-1', 'schedule_trigger', 'trigger')]
     const stepNumbers = new Map([['n-1', '1']])
-    const rfNodes = toRFNodes(nodes, stepNumbers)
+    const rfNodes = toRFNodes(nodes, stepNumbers, [])
 
     expect(rfNodes).toHaveLength(1)
     expect(rfNodes[0].id).toBe('n-1')
@@ -27,6 +27,7 @@ describe('toRFNodes', () => {
     expect(rfNodes[0].position).toEqual({ x: 100, y: 200 })
     expect(rfNodes[0].data.workflowNode.id).toBe('n-1')
     expect(rfNodes[0].data.stepNumber).toBe('1')
+    expect(rfNodes[0].data.isTerminalNode).toBe(true)
   })
 
   it('maps node category to React Flow node type', () => {
@@ -37,7 +38,7 @@ describe('toRFNodes', () => {
       makeNode('i', 'telegram_send_message', 'integration'),
     ]
     const stepNumbers = new Map([['t', '1'], ['a', '2'], ['f', '3'], ['i', '4']])
-    const rfNodes = toRFNodes(nodes, stepNumbers)
+    const rfNodes = toRFNodes(nodes, stepNumbers, [])
 
     expect(rfNodes[0].type).toBe('trigger')
     expect(rfNodes[1].type).toBe('action')

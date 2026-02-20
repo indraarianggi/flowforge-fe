@@ -8,7 +8,7 @@ import { toRFNodes, toRFEdges, fromRFNodes, getStepNumbers } from '@/lib/flowUti
 import type { FlowNodeData } from '@/lib/flowUtils'
 
 export interface PickerContext {
-  sourceNodeId: string
+  sourceNodeId?: string   // undefined when adding the very first node
   sourceHandle?: string
   targetNodeId?: string
 }
@@ -54,7 +54,7 @@ interface EditorState {
 /** Re-compute RF nodes and edges from a workflow (runs auto-layout internally) */
 function rebuildRF(workflow: Workflow): { rfNodes: Node<FlowNodeData>[]; rfEdges: Edge[] } {
   const stepNumbers = getStepNumbers(workflow.nodes, workflow.edges)
-  const rfNodes = toRFNodes(workflow.nodes, stepNumbers)
+  const rfNodes = toRFNodes(workflow.nodes, stepNumbers, workflow.edges)
   const rfEdges = toRFEdges(workflow.edges)
   return { rfNodes, rfEdges }
 }
@@ -101,6 +101,15 @@ export const useEditorStore = create<EditorState>((set) => ({
 
       const newNodes = [...wf.nodes, { ...node, position: { x: 0, y: 0 } }]
       let newEdges = [...wf.edges]
+
+      // First node in an empty workflow — no source, no edges to create
+      if (!sourceNodeId) {
+        const updatedWf = { ...wf, nodes: newNodes, edges: newEdges }
+        const laidOut = autoLayout(updatedWf.nodes, updatedWf.edges)
+        const wfFinal = { ...updatedWf, nodes: laidOut }
+        const { rfNodes, rfEdges } = rebuildRF(wfFinal)
+        return { workflow: wfFinal, rfNodes, rfEdges }
+      }
 
       if (targetNodeId) {
         // Split existing edge: remove source→target, add source→new and new→target
@@ -159,6 +168,8 @@ export const useEditorStore = create<EditorState>((set) => ({
       if (!state.workflow) return state
       const wf = state.workflow
       const { sourceNodeId, sourceHandle, targetNodeId } = context
+      // addIfNode always requires a source node to connect from
+      if (!sourceNodeId) return state
       const ts = Date.now()
       const mergeId = `merge-${ts}`
 
@@ -285,7 +296,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       )
       const updatedWf = { ...state.workflow, nodes: newNodes }
       const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
-      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers)
+      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers, updatedWf.edges)
       return { workflow: updatedWf, rfNodes }
     }),
 
@@ -297,7 +308,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       )
       const updatedWf = { ...state.workflow, nodes: newNodes }
       const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
-      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers)
+      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers, updatedWf.edges)
       return { workflow: updatedWf, rfNodes }
     }),
 
