@@ -3,7 +3,7 @@ import { useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { VariablePicker } from "./VariablePicker"
-import type { WorkflowNode } from "@/types"
+import type { WorkflowNode, WorkflowEdge } from "@/types"
 
 interface Props {
   label: string
@@ -12,7 +12,7 @@ interface Props {
   placeholder?: string
   multiline?: boolean
   nodes: WorkflowNode[]
-  nodeOrder: string[]
+  edges: WorkflowEdge[]
   currentNodeId: string
 }
 
@@ -23,7 +23,7 @@ export function ExpressionField({
   placeholder,
   multiline,
   nodes,
-  nodeOrder,
+  edges,
   currentNodeId,
 }: Props) {
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
@@ -51,7 +51,7 @@ export function ExpressionField({
         <label className="text-xs font-medium text-slate-600">{label}</label>
         <VariablePicker
           nodes={nodes}
-          nodeOrder={nodeOrder}
+          edges={edges}
           currentNodeId={currentNodeId}
           onInsert={handleInsert}
         />

@@ -7,17 +7,17 @@ import {
 import { cn } from "@/lib/utils"
 import { ExpressionField } from "../ExpressionField"
 import type { LoopConfig as Config } from "@/types"
-import type { WorkflowNode } from "@/types"
+import type { WorkflowNode, WorkflowEdge } from "@/types"
 
 interface Props {
   config: Config
   onChange: (config: Config) => void
   nodes: WorkflowNode[]
-  nodeOrder: string[]
+  edges: WorkflowEdge[]
   currentNodeId: string
 }
 
-export function LoopConfig({ config, onChange, nodes, nodeOrder, currentNodeId }: Props) {
+export function LoopConfig({ config, onChange, nodes, edges, currentNodeId }: Props) {
   return (
     <div className="space-y-4">
       {/* Mode toggle */}
@@ -48,7 +48,7 @@ export function LoopConfig({ config, onChange, nodes, nodeOrder, currentNodeId }
           onChange={(source) => onChange({ ...config, source })}
           placeholder="{{ $steps[1].json.rows }}"
           nodes={nodes}
-          nodeOrder={nodeOrder}
+          edges={edges}
           currentNodeId={currentNodeId}
         />
       ) : (

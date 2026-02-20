@@ -21,17 +21,17 @@ import { MergeConfig } from "./configs/MergeConfig"
 import { IntegrationPlaceholderConfig } from "./configs/IntegrationPlaceholderConfig"
 import { ErrorHandlingConfig } from "./configs/ErrorHandlingConfig"
 import { useEditorStore } from "@/stores/editorStore"
-import type { WorkflowNode } from "@/types"
+import type { WorkflowNode, WorkflowEdge } from "@/types"
 
 interface Props {
   open: boolean
   onClose: () => void
   node: WorkflowNode
   nodes: WorkflowNode[]
-  nodeOrder: string[]
+  edges: WorkflowEdge[]
 }
 
-export function NodeConfigPanel({ open, onClose, node, nodes, nodeOrder }: Props) {
+export function NodeConfigPanel({ open, onClose, node, nodes, edges }: Props) {
   const [isTesting, setIsTesting] = useState(false)
   const { updateNodeConfig, updateNodeStatus } = useEditorStore()
   const meta = getNodeMeta(node.type)
@@ -52,7 +52,7 @@ export function NodeConfigPanel({ open, onClose, node, nodes, nodeOrder }: Props
     })
   }
 
-  const fieldProps = { nodes, nodeOrder, currentNodeId: node.id }
+  const fieldProps = { nodes, edges, currentNodeId: node.id }
 
   function renderSettingsForm() {
     const config = node.config as Record<string, unknown>

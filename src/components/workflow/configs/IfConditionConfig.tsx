@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { IfConditionConfig as Config, ConditionRow } from "@/types"
-import type { WorkflowNode } from "@/types"
+import type { WorkflowNode, WorkflowEdge } from "@/types"
 
 const OPERATIONS = [
   { value: "equals",       label: "equals",         hasValue: true },
@@ -25,7 +25,7 @@ interface Props {
   config: Config
   onChange: (config: Config) => void
   nodes: WorkflowNode[]
-  nodeOrder: string[]
+  edges: WorkflowEdge[]
   currentNodeId: string
 }
 

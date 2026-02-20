@@ -2,7 +2,7 @@
 import { delay } from "@/lib/delay"
 import storage, { STORAGE_KEYS } from "@/lib/storage"
 import { seedWorkflows } from "@/mocks"
-import type { Workflow, WorkflowNode } from "@/types"
+import type { Workflow, WorkflowNode, WorkflowEdge } from "@/types"
 
 function getWorkflows(): Workflow[] {
   const stored = storage.getList<Workflow>(STORAGE_KEYS.workflows)
@@ -36,7 +36,7 @@ export const workflowService = {
       description: data.description,
       isActive: false,
       nodes: [],
-      nodeOrder: [],
+      edges: [],
       settings: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -89,8 +89,8 @@ export const workflowService = {
   async saveNodes(
     workflowId: string,
     nodes: WorkflowNode[],
-    nodeOrder: string[]
+    edges: WorkflowEdge[]
   ): Promise<Workflow> {
-    return workflowService.update(workflowId, { nodes, nodeOrder })
+    return workflowService.update(workflowId, { nodes, edges })
   },
 }

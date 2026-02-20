@@ -9,18 +9,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { KeyValueEditor } from "../KeyValueEditor"
 import { ExpressionField } from "../ExpressionField"
 import type { HttpRequestConfig as Config } from "@/types"
-import type { WorkflowNode } from "@/types"
+import type { WorkflowNode, WorkflowEdge } from "@/types"
 
 interface Props {
   config: Config
   onChange: (config: Config) => void
   nodes: WorkflowNode[]
-  nodeOrder: string[]
+  edges: WorkflowEdge[]
   currentNodeId: string
 }
 
-export function HttpRequestConfig({ config, onChange, nodes, nodeOrder, currentNodeId }: Props) {
-  const fieldProps = { nodes, nodeOrder, currentNodeId }
+export function HttpRequestConfig({ config, onChange, nodes, edges, currentNodeId }: Props) {
+  const fieldProps = { nodes, edges, currentNodeId }
 
   return (
     <div className="space-y-4">
