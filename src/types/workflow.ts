@@ -123,15 +123,38 @@ export interface WorkflowNode {
   category: NodeCategory
   status: NodeStatus
   config: NodeConfig
-  // For IF node branches
-  trueBranchNodeIds?: string[]
-  falseBranchNodeIds?: string[]
-  // For Loop node body
-  bodyNodeIds?: string[]
-  // Position in flow
-  parentId?: string // for nodes inside branches/loops
-  branchType?: "true" | "false" | "body"
+  position: { x: number; y: number }
+  credentialId?: string           // top-level for quick execution engine access (not buried inside config)
+  onError?: 'stop' | 'continue' | 'retry' | 'skipItem'  // default: 'stop'. 'skipItem' only valid inside Loop
+  retryCount?: number             // only when onError = 'retry'. Default: 3
+  retryDelayMs?: number           // delay between retries in ms. Default: 1000
+  disabled?: boolean              // if true, skip during execution. Default: false
+  parentId?: string               // for nodes inside branches/loops
+  branchType?: 'true' | 'false' | 'body'
 }
+
+export interface WorkflowEdge {
+  id: string
+  source: string          // source node ID
+  target: string          // target node ID
+  sourceHandle?: string   // 'main' | 'true' | 'false' | 'loopBody' | 'loopComplete'
+  targetHandle?: string   // 'main' | 'branchA' | 'branchB'
+  type?: string           // 'default' | 'branch' | 'loop'
+  label?: string          // 'True' | 'False' | 'Loop'
+}
+
+export interface WorkflowSettings {
+  timezone?: string           // IANA timezone. Default: 'UTC'
+  maxExecutionTimeMs?: number // Max total execution time in ms. Default: 300000 (5 min)
+  maxLoopIterations?: number  // Max iterations per Loop node. Default: 1000
+  maxNestingDepth?: number    // Max branch/loop nesting depth. Default: 3
+}
+
+export type TriggerConfig =
+  | { type: 'manual' }
+  | { type: 'webhook'; webhookPath: string; method: string }
+  | { type: 'schedule'; cronExpression: string; timezone: string }
+  | { type: 'telegram'; credentialId: string; chatFilter: 'all' | string[] }
 
 export interface Workflow {
   id: string
@@ -140,12 +163,9 @@ export interface Workflow {
   description?: string
   isActive: boolean
   nodes: WorkflowNode[]
-  // Ordered list of top-level node IDs
-  nodeOrder: string[]
-  settings: {
-    timeout?: number
-    errorMode?: "stop" | "continue"
-  }
+  edges: WorkflowEdge[]
+  settings: WorkflowSettings
+  triggerConfig?: TriggerConfig  // read-only — derived by the backend on save, never sent by the frontend
   lastRunAt?: string
   createdAt: string
   updatedAt: string
