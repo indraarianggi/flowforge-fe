@@ -9,6 +9,7 @@ import {
   Panel,
   type OnNodesChange,
   type OnEdgesChange,
+  type OnConnect,
   type Node,
   type Edge,
 } from '@xyflow/react'
@@ -75,6 +76,7 @@ interface Props {
   edges: Edge[]
   onNodesChange: OnNodesChange
   onEdgesChange: OnEdgesChange
+  onConnect?: OnConnect
   onNodeClick?: (event: React.MouseEvent, node: Node) => void
   onAddTrigger?: () => void
 }
@@ -84,6 +86,7 @@ export function ReactFlowCanvas({
   edges,
   onNodesChange,
   onEdgesChange,
+  onConnect,
   onNodeClick,
   onAddTrigger,
 }: Props) {
@@ -100,6 +103,7 @@ export function ReactFlowCanvas({
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}

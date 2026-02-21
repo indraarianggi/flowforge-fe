@@ -6,10 +6,11 @@ import {
   getSmoothStepPath,
 } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { useEditorStore } from '@/stores/editorStore'
 
 function BranchEdgeComponent({
+  id,
   sourceX,
   sourceY,
   targetX,
@@ -22,6 +23,7 @@ function BranchEdgeComponent({
   target,
   sourceHandleId,
   label,
+  selected,
 }: EdgeProps) {
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -34,6 +36,7 @@ function BranchEdgeComponent({
   })
 
   const openPicker = useEditorStore((s) => s.openPicker)
+  const deleteEdge = useEditorStore((s) => s.deleteEdge)
 
   // Determine visual treatment based on source handle
   const isTrueBranch = sourceHandleId === 'true'
@@ -72,6 +75,11 @@ function BranchEdgeComponent({
     })
   }
 
+  function handleDeleteClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    deleteEdge(id)
+  }
+
   return (
     <>
       <BaseEdge
@@ -80,7 +88,7 @@ function BranchEdgeComponent({
         style={{
           ...style,
           strokeWidth: 2,
-          stroke: edgeColor,
+          stroke: selected ? '#6366f1' : edgeColor,
           strokeDasharray,
         }}
       />
@@ -108,7 +116,7 @@ function BranchEdgeComponent({
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             pointerEvents: 'all',
           }}
-          className="nodrag nopan"
+          className="nodrag nopan flex items-center gap-1"
         >
           <button
             onClick={handleAddClick}
@@ -116,11 +124,17 @@ function BranchEdgeComponent({
             style={{ borderColor: edgeColor }}
             aria-label={`Add step on ${labelText} branch`}
           >
-            <Plus
-              size={12}
-              className="text-slate-400 group-hover:text-indigo-500 transition-colors duration-150"
-            />
+            <Plus size={12} className="text-slate-400 group-hover:text-indigo-500 transition-colors duration-150" />
           </button>
+          {selected && (
+            <button
+              onClick={handleDeleteClick}
+              className="w-6 h-6 rounded-full bg-white border-2 border-red-200 flex items-center justify-center hover:border-red-400 hover:bg-red-50 transition-all duration-150 shadow-sm hover:shadow group"
+              aria-label="Delete connection"
+            >
+              <X size={12} className="text-red-300 group-hover:text-red-500 transition-colors duration-150" />
+            </button>
+          )}
         </div>
       </EdgeLabelRenderer>
     </>

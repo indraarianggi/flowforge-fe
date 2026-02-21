@@ -13,7 +13,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { useWorkflow, useUpdateWorkflow, useSaveWorkflowNodes } from '@/hooks/useWorkflows'
 import { useRunWorkflowWithSimulation } from '@/hooks/useExecutions'
 import type { WorkflowNode } from '@/types'
-import type { Node } from '@xyflow/react'
+import type { Node, Connection } from '@xyflow/react'
 
 export function WorkflowEditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -44,6 +44,7 @@ export function WorkflowEditorPage() {
     addNode,
     addIfNode,
     deleteNode,
+    addEdge,
     runAutoLayout,
   } = useEditorStore()
 
@@ -86,6 +87,11 @@ export function WorkflowEditorPage() {
   function handleAddTrigger() {
     openPicker({})
   }
+
+  const handleConnect = useCallback(
+    (connection: Connection) => addEdge(connection),
+    [addEdge]
+  )
 
   function handleNodeSelected(node: WorkflowNode) {
     if (!pickerContext) return
@@ -178,6 +184,7 @@ export function WorkflowEditorPage() {
             edges={rfEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onConnect={handleConnect}
             onNodeClick={handleNodeClick}
             onAddTrigger={handleAddTrigger}
           />

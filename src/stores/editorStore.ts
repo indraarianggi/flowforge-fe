@@ -1,8 +1,8 @@
 // src/stores/editorStore.ts
 import { create } from 'zustand'
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
-import type { Node, Edge, OnNodesChange, OnEdgesChange, NodeChange, EdgeChange } from '@xyflow/react'
-import type { Workflow, WorkflowNode } from '@/types'
+import type { Node, Edge, OnNodesChange, OnEdgesChange, NodeChange, EdgeChange, Connection } from '@xyflow/react'
+import type { Workflow, WorkflowEdge, WorkflowNode } from '@/types'
 import { autoLayout } from '@/lib/autoLayout'
 import { toRFNodes, toRFEdges, fromRFNodes, getStepNumbers } from '@/lib/flowUtils'
 import type { FlowNodeData } from '@/lib/flowUtils'
@@ -47,6 +47,10 @@ interface EditorState {
   openPicker: (context: PickerContext) => void
   closePicker: () => void
 
+  // Actions — Edge
+  deleteEdge: (edgeId: string) => void
+  addEdge: (connection: Connection) => void
+
   // Actions — Sync
   syncWorkflowFromRF: () => void
 }
@@ -75,9 +79,24 @@ export const useEditorStore = create<EditorState>((set) => ({
   },
 
   onEdgesChange: (changes: EdgeChange[]) => {
-    set((state) => ({
-      rfEdges: applyEdgeChanges(changes, state.rfEdges),
-    }))
+    set((state) => {
+      const newRfEdges = applyEdgeChanges(changes, state.rfEdges)
+
+      // Sync removals to the canonical workflow model
+      const removedIds = new Set(
+        changes.filter((c) => c.type === 'remove').map((c) => c.id)
+      )
+
+      if (removedIds.size === 0 || !state.workflow) {
+        return { rfEdges: newRfEdges }
+      }
+
+      const newEdges = state.workflow.edges.filter((e) => !removedIds.has(e.id))
+      const updatedWf = { ...state.workflow, edges: newEdges }
+      const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
+      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers, updatedWf.edges)
+      return { rfEdges: newRfEdges, rfNodes, workflow: updatedWf }
+    })
   },
 
   loadWorkflow: (workflow) => {
@@ -286,6 +305,45 @@ export const useEditorStore = create<EditorState>((set) => ({
         selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
         isPanelOpen: state.selectedNodeId === nodeId ? false : state.isPanelOpen,
       }
+    }),
+
+  deleteEdge: (edgeId) =>
+    set((state) => {
+      if (!state.workflow) return state
+      const newEdges = state.workflow.edges.filter((e) => e.id !== edgeId)
+      const updatedWf = { ...state.workflow, edges: newEdges }
+      const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
+      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers, updatedWf.edges)
+      const rfEdges = toRFEdges(newEdges)
+      return { workflow: updatedWf, rfNodes, rfEdges }
+    }),
+
+  addEdge: (connection) =>
+    set((state) => {
+      if (!state.workflow) return state
+      const { source, target, sourceHandle, targetHandle } = connection
+      if (!source || !target) return state
+
+      const isTrue = sourceHandle === 'true'
+      const isFalse = sourceHandle === 'false'
+      const isLoop = sourceHandle === 'loopBody'
+
+      const newEdge: WorkflowEdge = {
+        id: `e-${Date.now()}`,
+        source,
+        target,
+        sourceHandle: sourceHandle ?? undefined,
+        targetHandle: targetHandle ?? undefined,
+        type: isTrue || isFalse ? 'branch' : isLoop ? 'loop' : undefined,
+        label: isTrue ? 'True' : isFalse ? 'False' : isLoop ? 'Loop' : undefined,
+      }
+
+      const newEdges = [...state.workflow.edges, newEdge]
+      const updatedWf = { ...state.workflow, edges: newEdges }
+      const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
+      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers, updatedWf.edges)
+      const rfEdges = toRFEdges(newEdges)
+      return { workflow: updatedWf, rfNodes, rfEdges }
     }),
 
   updateNodeConfig: (nodeId, config) =>
