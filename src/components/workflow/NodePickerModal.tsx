@@ -49,13 +49,9 @@ export function NodePickerModal({ open, onClose, onSelect }: Props) {
       type: selectedMeta.type,
       label: selectedMeta.label,
       category: selectedMeta.category,
-      status: "unconfigured",
+      status: 'unconfigured',
       config: defaultConfig[selectedMeta.type] ?? {},
-      ...(selectedMeta.type === "if_condition" && {
-        trueBranchNodeIds: [],
-        falseBranchNodeIds: [],
-      }),
-      ...(selectedMeta.type === "loop" && { bodyNodeIds: [] }),
+      position: { x: 0, y: 0 },
     }
     onSelect(node)
     handleClose()

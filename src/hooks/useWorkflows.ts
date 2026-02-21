@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { workflowService } from "@/services/workflowService"
-import type { Workflow, WorkflowNode } from "@/types"
+import type { Workflow, WorkflowNode, WorkflowEdge } from "@/types"
 
 export const workflowKeys = {
   all: ["workflows"] as const,
@@ -72,12 +72,12 @@ export function useSaveWorkflowNodes() {
     mutationFn: ({
       workflowId,
       nodes,
-      nodeOrder,
+      edges,
     }: {
       workflowId: string
       nodes: WorkflowNode[]
-      nodeOrder: string[]
-    }) => workflowService.saveNodes(workflowId, nodes, nodeOrder),
+      edges: WorkflowEdge[]
+    }) => workflowService.saveNodes(workflowId, nodes, edges),
     onSuccess: (_, { workflowId }) => {
       qc.invalidateQueries({ queryKey: workflowKeys.detail(workflowId) })
     },

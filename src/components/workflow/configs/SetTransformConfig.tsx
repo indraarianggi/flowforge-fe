@@ -4,17 +4,17 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ExpressionField } from "../ExpressionField"
 import type { SetTransformConfig as Config } from "@/types"
-import type { WorkflowNode } from "@/types"
+import type { WorkflowNode, WorkflowEdge } from "@/types"
 
 interface Props {
   config: Config
   onChange: (config: Config) => void
   nodes: WorkflowNode[]
-  nodeOrder: string[]
+  edges: WorkflowEdge[]
   currentNodeId: string
 }
 
-export function SetTransformConfig({ config, onChange, nodes, nodeOrder, currentNodeId }: Props) {
+export function SetTransformConfig({ config, onChange, nodes, edges, currentNodeId }: Props) {
   function addField() {
     onChange({
       ...config,
@@ -63,7 +63,7 @@ export function SetTransformConfig({ config, onChange, nodes, nodeOrder, current
               onChange={(val) => updateField(field.id, "value", val)}
               placeholder="Value or {{ expression }}"
               nodes={nodes}
-              nodeOrder={nodeOrder}
+              edges={edges}
               currentNodeId={currentNodeId}
             />
           </div>

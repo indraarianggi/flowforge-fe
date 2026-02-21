@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { WorkflowNode } from "@/types"
+import type { WorkflowNode, WorkflowEdge } from "@/types"
 
 interface VariableEntry {
   expression: string
@@ -22,67 +22,92 @@ interface VariableGroup {
   variables: VariableEntry[]
 }
 
-function buildVariableGroups(
+export function buildVariableGroups(
   nodes: WorkflowNode[],
-  nodeOrder: string[],
+  edges: WorkflowEdge[],
   currentNodeId: string
 ): VariableGroup[] {
-  const currentIdx = nodeOrder.indexOf(currentNodeId)
-  const previousNodeIds = nodeOrder.slice(0, currentIdx)
-
   const groups: VariableGroup[] = []
 
-  // $trigger always available
-  const triggerNode = nodes.find((n) => n.category === "trigger")
+  // Build reverse adjacency: for each node, which edges point TO it
+  const reverseAdj = new Map<string, WorkflowEdge[]>()
+  for (const edge of edges) {
+    const list = reverseAdj.get(edge.target) ?? []
+    list.push(edge)
+    reverseAdj.set(edge.target, list)
+  }
+
+  // BFS backwards from currentNodeId to find all ancestor node IDs (in order)
+  const visited = new Set<string>()
+  const queue = [currentNodeId]
+  const ancestors: string[] = []
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!
+    if (visited.has(nodeId)) continue
+    visited.add(nodeId)
+    const incomingEdges = reverseAdj.get(nodeId) ?? []
+    for (const edge of incomingEdges) {
+      if (!visited.has(edge.source)) {
+        ancestors.push(edge.source)
+        queue.push(edge.source)
+      }
+    }
+  }
+
+  // $trigger always first
+  const triggerNode = nodes.find((n) => n.category === 'trigger' && ancestors.includes(n.id))
   if (triggerNode) {
     groups.push({
       nodeLabel: triggerNode.label,
-      stepNumber: "trigger",
+      stepNumber: 'trigger',
       variables: [
-        { expression: "{{ $trigger.json }}", label: "All trigger data", sampleValue: "{ ... }" },
-        { expression: "{{ $trigger.json.body }}", label: "body", sampleValue: "{ ... }" },
-        { expression: "{{ $trigger.json.headers }}", label: "headers", sampleValue: "{ ... }" },
+        { expression: '{{ $trigger.json }}', label: 'All trigger data', sampleValue: '{ ... }' },
+        { expression: '{{ $trigger.json.body }}', label: 'body', sampleValue: '{ ... }' },
+        { expression: '{{ $trigger.json.headers }}', label: 'headers', sampleValue: '{ ... }' },
       ],
     })
   }
 
-  // Previous steps
-  previousNodeIds.forEach((nodeId, idx) => {
+  // Previous action/integration steps (in ancestor order, excluding trigger)
+  let stepCounter = 1
+  for (const nodeId of ancestors) {
     const node = nodes.find((n) => n.id === nodeId)
-    if (!node || node.category === "trigger") return
-    const stepN = idx + 1
+    if (!node || node.category === 'trigger') continue
+    const stepN = ++stepCounter
     groups.push({
       nodeLabel: node.label,
       stepNumber: String(stepN),
       variables: [
-        { expression: `{{ $steps[${stepN}].json }}`, label: "All output", sampleValue: "{ ... }" },
-        { expression: `{{ $steps[${stepN}].json.statusCode }}`, label: "statusCode", sampleValue: "200" },
-        { expression: `{{ $steps[${stepN}].json.body }}`, label: "body", sampleValue: "{ ... }" },
-      ],
-    })
-  })
-
-  // Loop context variables if inside a loop
-  const isInLoop = nodes.some(
-    (n) => n.type === "loop" && n.bodyNodeIds?.includes(currentNodeId)
-  )
-  if (isInLoop) {
-    groups.push({
-      nodeLabel: "Loop context",
-      stepNumber: "loop",
-      variables: [
-        { expression: "{{ $item }}", label: "Current item", sampleValue: "{ ... }" },
-        { expression: "{{ $index }}", label: "Current index", sampleValue: "0" },
+        { expression: `{{ $steps[${stepN}].json }}`, label: 'All output', sampleValue: '{ ... }' },
+        { expression: `{{ $steps[${stepN}].json.statusCode }}`, label: 'statusCode', sampleValue: '200' },
+        { expression: `{{ $steps[${stepN}].json.body }}`, label: 'body', sampleValue: '{ ... }' },
       ],
     })
   }
 
-  // Utility
+  // Loop context: check if current node has a loop ancestor via loopBody edge
+  const currentNode = nodes.find((n) => n.id === currentNodeId)
+  const isInLoop =
+    currentNode?.parentId &&
+    nodes.some((n) => n.id === currentNode.parentId && n.type === 'loop')
+  if (isInLoop) {
+    groups.push({
+      nodeLabel: 'Loop context',
+      stepNumber: 'loop',
+      variables: [
+        { expression: '{{ $item }}', label: 'Current item', sampleValue: '{ ... }' },
+        { expression: '{{ $index }}', label: 'Current index', sampleValue: '0' },
+      ],
+    })
+  }
+
+  // Utilities
   groups.push({
-    nodeLabel: "Utilities",
-    stepNumber: "util",
+    nodeLabel: 'Utilities',
+    stepNumber: 'util',
     variables: [
-      { expression: "{{ $now }}", label: "Current timestamp", sampleValue: new Date().toISOString() },
+      { expression: '{{ $now }}', label: 'Current timestamp', sampleValue: new Date().toISOString() },
     ],
   })
 
@@ -91,14 +116,14 @@ function buildVariableGroups(
 
 interface Props {
   nodes: WorkflowNode[]
-  nodeOrder: string[]
+  edges: WorkflowEdge[]
   currentNodeId: string
   onInsert: (expression: string) => void
 }
 
-export function VariablePicker({ nodes, nodeOrder, currentNodeId, onInsert }: Props) {
+export function VariablePicker({ nodes, edges, currentNodeId, onInsert }: Props) {
   const [open, setOpen] = useState(false)
-  const groups = buildVariableGroups(nodes, nodeOrder, currentNodeId)
+  const groups = buildVariableGroups(nodes, edges, currentNodeId)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
