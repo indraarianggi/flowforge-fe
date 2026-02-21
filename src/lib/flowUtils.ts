@@ -11,6 +11,10 @@ export interface FlowNodeData {
   trueBranchConnected: boolean
   /** Whether the IF node's "false" handle already has an outgoing edge */
   falseBranchConnected: boolean
+  /** Whether the Loop node's "loopBody" handle already has an outgoing edge */
+  loopBodyConnected: boolean
+  /** Whether the Loop node's "loopComplete" handle already has an outgoing edge */
+  loopCompleteConnected: boolean
   [key: string]: unknown
 }
 
@@ -38,6 +42,12 @@ export function toRFNodes(
   const nodesWithFalseEdge = new Set(
     edges.filter((e) => e.sourceHandle === 'false').map((e) => e.source)
   )
+  const nodesWithLoopBodyEdge = new Set(
+    edges.filter((e) => e.sourceHandle === 'loopBody').map((e) => e.source)
+  )
+  const nodesWithLoopCompleteEdge = new Set(
+    edges.filter((e) => e.sourceHandle === 'loopComplete').map((e) => e.source)
+  )
 
   return nodes.map((wn) => ({
     id: wn.id,
@@ -49,15 +59,38 @@ export function toRFNodes(
       isTerminalNode: !nodesWithOutgoingEdge.has(wn.id),
       trueBranchConnected: nodesWithTrueEdge.has(wn.id),
       falseBranchConnected: nodesWithFalseEdge.has(wn.id),
+      loopBodyConnected: nodesWithLoopBodyEdge.has(wn.id),
+      loopCompleteConnected: nodesWithLoopCompleteEdge.has(wn.id),
     },
   }))
 }
 
 /**
- * Convert WorkflowEdges → React Flow Edge[]
+ * Find the terminal node in a loop body chain starting from a given nodeId.
+ * Follows edges with no sourceHandle (main flow) until no outgoing edge found.
  */
-export function toRFEdges(edges: WorkflowEdge[]): Edge[] {
-  return edges.map((we) => ({
+function findLoopBodyTerminal(startId: string, edges: WorkflowEdge[]): string {
+  let current = startId
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const next = edges.find(
+      (e) =>
+        e.source === current && (!e.sourceHandle || e.sourceHandle === 'main'),
+    )
+    if (!next) return current
+    current = next.target
+  }
+}
+
+/**
+ * Convert WorkflowEdges → React Flow Edge[]
+ * Optionally pass nodes to inject synthetic loopBack edges (derived — not stored in workflow data).
+ */
+export function toRFEdges(
+  edges: WorkflowEdge[],
+  nodes: WorkflowNode[] = [],
+): Edge[] {
+  const rfEdges: Edge[] = edges.map((we) => ({
     id: we.id,
     source: we.source,
     target: we.target,
@@ -67,6 +100,26 @@ export function toRFEdges(edges: WorkflowEdge[]): Edge[] {
     label: we.label,
     data: { workflowEdge: we },
   }))
+
+  // Inject synthetic loopBack edges (derived — not stored in workflow data)
+  const loopNodes = nodes.filter((n) => n.type === 'loop')
+  for (const loopNode of loopNodes) {
+    const bodyEdge = edges.find(
+      (e) => e.source === loopNode.id && e.sourceHandle === 'loopBody',
+    )
+    if (!bodyEdge) continue
+
+    const terminalId = findLoopBodyTerminal(bodyEdge.target, edges)
+    rfEdges.push({
+      id: `loopback-${loopNode.id}`,
+      source: terminalId,
+      target: loopNode.id,
+      type: 'loopBack',
+      data: {},
+    })
+  }
+
+  return rfEdges
 }
 
 /**

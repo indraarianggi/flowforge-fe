@@ -46,6 +46,65 @@ describe('autoLayout', () => {
     expect(trueNode.position.y).toBeLessThan(falseNode.position.y)
   })
 
+  it('positions Loop Complete branch above loop node, Loop Body branch below', () => {
+    const nodes = [
+      makeNode('trigger', 'manual_trigger'),
+      makeNode('loop', 'loop'),
+      makeNode('complete'),
+      makeNode('body'),
+    ]
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'trigger', target: 'loop' },
+      {
+        id: 'e2',
+        source: 'loop',
+        target: 'complete',
+        sourceHandle: 'loopComplete',
+        type: 'loop',
+      },
+      {
+        id: 'e3',
+        source: 'loop',
+        target: 'body',
+        sourceHandle: 'loopBody',
+        type: 'loop',
+      },
+    ]
+    const result = autoLayout(nodes, edges)
+    const loopNode = result.find((n) => n.id === 'loop')!
+    const completeNode = result.find((n) => n.id === 'complete')!
+    const bodyNode = result.find((n) => n.id === 'body')!
+
+    // Loop Complete should be ABOVE the loop node center (smaller y)
+    expect(completeNode.position.y).toBeLessThan(loopNode.position.y + 40) // 40 = NODE_HEIGHT/2
+    // Loop Body should be BELOW the loop node center (larger y)
+    expect(bodyNode.position.y).toBeGreaterThan(loopNode.position.y - 40)
+    // Complete is above Body
+    expect(completeNode.position.y).toBeLessThan(bodyNode.position.y)
+  })
+
+  it('loop branch order is stable even when loopBody edge is stored before loopComplete', () => {
+    // Simulates the user connecting loopBody first, loopComplete second
+    const nodes = [
+      makeNode('trigger', 'manual_trigger'),
+      makeNode('loop', 'loop'),
+      makeNode('complete'),
+      makeNode('body'),
+    ]
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'trigger', target: 'loop' },
+      // Note: loopBody edge comes FIRST in storage order
+      { id: 'e3', source: 'loop', target: 'body', sourceHandle: 'loopBody', type: 'loop' },
+      { id: 'e2', source: 'loop', target: 'complete', sourceHandle: 'loopComplete', type: 'loop' },
+    ]
+    const result = autoLayout(nodes, edges)
+    const completeNode = result.find((n) => n.id === 'complete')!
+    const bodyNode = result.find((n) => n.id === 'body')!
+
+    // Regardless of edge insertion order, complete must always be above body
+    expect(completeNode.position.y).toBeLessThan(bodyNode.position.y)
+  })
+
   it('returns same number of nodes', () => {
     const nodes = [makeNode('a'), makeNode('b')]
     const edges: WorkflowEdge[] = [{ id: 'e1', source: 'a', target: 'b' }]

@@ -14,6 +14,8 @@ function FlowControlNodeComponent({ data, selected }: NodeProps) {
     isTerminalNode,
     trueBranchConnected,
     falseBranchConnected,
+    loopBodyConnected,
+    loopCompleteConnected,
   } = data as FlowNodeData;
   const nodeType = workflowNode.type;
   const openPicker = useEditorStore((s) => s.openPicker);
@@ -34,6 +36,16 @@ function FlowControlNodeComponent({ data, selected }: NodeProps) {
   function handleAddFalse(e: React.MouseEvent) {
     e.stopPropagation();
     openPicker({ sourceNodeId: workflowNode.id, sourceHandle: "false" });
+  }
+
+  function handleAddLoopComplete(e: React.MouseEvent) {
+    e.stopPropagation();
+    openPicker({ sourceNodeId: workflowNode.id, sourceHandle: "loopComplete" });
+  }
+
+  function handleAddLoopBody(e: React.MouseEvent) {
+    e.stopPropagation();
+    openPicker({ sourceNodeId: workflowNode.id, sourceHandle: "loopBody" });
   }
 
   return (
@@ -93,18 +105,21 @@ function FlowControlNodeComponent({ data, selected }: NodeProps) {
 
       {nodeType === "loop" && (
         <>
+          {/* Loop Complete — top handle (amber, solid) */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="loopComplete"
+            className="!w-3 !h-3 !bg-amber-400 !border-2 !border-white"
+            style={{ top: "30%" }}
+          />
+          {/* Loop Body — bottom handle (blue, dashed) */}
           <Handle
             type="source"
             position={Position.Right}
             id="loopBody"
             className="!w-3 !h-3 !bg-blue-400 !border-2 !border-white"
-            style={{ top: "30%" }}
-          />
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="loopComplete"
-            className="!w-3 !h-3 !bg-amber-400 !border-2 !border-white"
+            style={{ top: "70%" }}
           />
         </>
       )}
@@ -211,6 +226,133 @@ function FlowControlNodeComponent({ data, selected }: NodeProps) {
               />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Loop Complete stub — shown when loop node's loopComplete handle has no edge */}
+      {nodeType === "loop" && !loopCompleteConnected && (
+        <div
+          className="absolute nodrag nopan"
+          style={{
+            top: "30%",
+            left: "calc(100% + 6px)",
+            transform: "translateY(-50%)",
+            pointerEvents: "all",
+          }}
+        >
+          <div className="relative flex items-center">
+            <div
+              style={{
+                width: 44,
+                height: 2,
+                backgroundColor: "#f59e0b",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              className="absolute whitespace-nowrap text-[10px] font-semibold"
+              style={{
+                color: "#d97706",
+                backgroundColor: "#fef3c7",
+                padding: "1px 6px",
+                borderRadius: "9999px",
+                bottom: "calc(100% + 2px)",
+                left: 6,
+              }}
+            >
+              Loop Complete
+            </span>
+            <button
+              onClick={handleAddLoopComplete}
+              className="w-6 h-6 rounded-full bg-white border-2 flex items-center justify-center hover:bg-indigo-50 transition-all duration-150 shadow-sm hover:shadow group"
+              style={{ borderColor: "#f59e0b", flexShrink: 0 }}
+              aria-label="Add step on Loop Complete"
+            >
+              <Plus
+                size={12}
+                className="text-slate-400 group-hover:text-indigo-500 transition-colors duration-150"
+              />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Loop Body stub — shown when loop node's loopBody handle has no edge */}
+      {nodeType === "loop" && !loopBodyConnected && (
+        <div
+          className="absolute nodrag nopan"
+          style={{
+            top: "70%",
+            left: "calc(100% + 6px)",
+            transform: "translateY(-50%)",
+            pointerEvents: "all",
+          }}
+        >
+          <div className="relative flex items-center">
+            {/* Dashed line using repeating-linear-gradient trick */}
+            <div
+              style={{
+                width: 44,
+                height: 2,
+                backgroundImage:
+                  "repeating-linear-gradient(90deg, #3b82f6 0, #3b82f6 6px, transparent 6px, transparent 12px)",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              className="absolute whitespace-nowrap text-[10px] font-semibold"
+              style={{
+                color: "#2563eb",
+                backgroundColor: "#eff6ff",
+                padding: "1px 6px",
+                borderRadius: "9999px",
+                top: "calc(100% + 2px)",
+                left: 6,
+              }}
+            >
+              Loop Body
+            </span>
+            <button
+              onClick={handleAddLoopBody}
+              className="w-6 h-6 rounded-full bg-white border-2 flex items-center justify-center hover:bg-indigo-50 transition-all duration-150 shadow-sm hover:shadow group"
+              style={{ borderColor: "#3b82f6", flexShrink: 0 }}
+              aria-label="Add step on Loop Body"
+            >
+              <Plus
+                size={12}
+                className="text-slate-400 group-hover:text-indigo-500 transition-colors duration-150"
+              />
+            </button>
+          </div>
+
+          {/* Decorative loop-back arc — purely visual, no interaction */}
+          {/* Anchored at the (+) button center; sweeps down then left back to node */}
+          <svg
+            style={{
+              position: "absolute",
+              overflow: "visible",
+              top: 0,
+              left: 56, // past the 44px dashed line + 12px button center
+              pointerEvents: "none",
+              width: 0,
+              height: 0,
+            }}
+          >
+            {/*
+              Path from (+) button: go down ~100px, sweep left ~282px, back up to
+              approx the node's bottom-left corner.
+              282px ≈ node width 220px + stub offset 6px + handle 6px + line 44px + button 12px
+            */}
+            <path
+              d="M 0 0 C 0 100, -282 100, -282 28"
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              strokeDasharray="8 4"
+              strokeLinecap="round"
+              opacity={0.6}
+            />
+          </svg>
         </div>
       )}
 

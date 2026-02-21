@@ -58,7 +58,7 @@ interface EditorState {
 function rebuildRF(workflow: Workflow): { rfNodes: Node<FlowNodeData>[]; rfEdges: Edge[] } {
   const stepNumbers = getStepNumbers(workflow.nodes, workflow.edges)
   const rfNodes = toRFNodes(workflow.nodes, stepNumbers, workflow.edges)
-  const rfEdges = toRFEdges(workflow.edges)
+  const rfEdges = toRFEdges(workflow.edges, workflow.nodes)
   return { rfNodes, rfEdges }
 }
 
@@ -231,7 +231,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       const updatedWf = { ...state.workflow, edges: newEdges }
       const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
       const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers, updatedWf.edges)
-      const rfEdges = toRFEdges(newEdges)
+      const rfEdges = toRFEdges(newEdges, updatedWf.nodes)
       return { workflow: updatedWf, rfNodes, rfEdges }
     }),
 
@@ -259,7 +259,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       const updatedWf = { ...state.workflow, edges: newEdges }
       const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
       const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers, updatedWf.edges)
-      const rfEdges = toRFEdges(newEdges)
+      const rfEdges = toRFEdges(newEdges, updatedWf.nodes)
       return { workflow: updatedWf, rfNodes, rfEdges }
     }),
 

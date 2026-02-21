@@ -20,6 +20,7 @@ import { ActionNode } from './nodes/ActionNode'
 import { FlowControlNode } from './nodes/FlowControlNode'
 import { DefaultEdge } from './edges/DefaultEdge'
 import { BranchEdge } from './edges/BranchEdge'
+import { LoopBackEdge } from './edges/LoopBackEdge'
 
 // Defined outside the component to avoid remounting nodes on re-renders
 const nodeTypes = {
@@ -32,6 +33,7 @@ const edgeTypes = {
   default: DefaultEdge,
   branch: BranchEdge,
   loop: BranchEdge, // loop edges reuse BranchEdge with loopBody handle styling
+  loopBack: LoopBackEdge,
 }
 
 // ─── Empty State ──────────────────────────────────────────────────────────────

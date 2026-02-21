@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { seedWorkflows } from './workflows'
 
 describe('seedWorkflows', () => {
-  it('should have 3 workflows', () => {
-    expect(seedWorkflows).toHaveLength(3)
+  it('should have 4 workflows', () => {
+    expect(seedWorkflows).toHaveLength(4)
   })
 
   it('all workflows should have edges array (not nodeOrder)', () => {

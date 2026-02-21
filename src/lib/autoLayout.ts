@@ -31,7 +31,12 @@ export function autoLayout(
   // regardless of the order the user connected the nodes.
   const sortedEdges = [...edges].sort((a, b) => {
     if (a.source !== b.source) return 0
-    const rank = (h: string | undefined) => (h === 'true' ? 0 : h === 'false' ? 1 : 2)
+    const rank = (h: string | undefined) =>
+      h === 'true' || h === 'loopComplete'
+        ? 0
+        : h === 'false' || h === 'loopBody'
+          ? 1
+          : 2
     return rank(a.sourceHandle) - rank(b.sourceHandle)
   })
 

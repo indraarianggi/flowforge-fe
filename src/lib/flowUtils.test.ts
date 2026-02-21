@@ -45,6 +45,45 @@ describe('toRFNodes', () => {
     expect(rfNodes[2].type).toBe('flowControl')
     expect(rfNodes[3].type).toBe('action') // integrations use action node type
   })
+
+  it("sets loopBodyConnected=true when loop node has a loopBody edge", () => {
+    const nodes = [makeNode("loop", "loop", "flow_control"), makeNode("body")];
+    const edges: WorkflowEdge[] = [
+      { id: "e1", source: "loop", target: "body", sourceHandle: "loopBody" },
+    ];
+    const stepNumbers = new Map([
+      ["loop", "1"],
+      ["body", "1.1"],
+    ]);
+    const rfNodes = toRFNodes(nodes, stepNumbers, edges);
+    const loopRF = rfNodes.find((n) => n.id === "loop")!;
+    expect(loopRF.data.loopBodyConnected).toBe(true);
+    expect(loopRF.data.loopCompleteConnected).toBe(false);
+  });
+
+  it("sets loopCompleteConnected=true when loop node has a loopComplete edge", () => {
+    const nodes = [makeNode("loop", "loop", "flow_control"), makeNode("done")];
+    const edges: WorkflowEdge[] = [
+      { id: "e1", source: "loop", target: "done", sourceHandle: "loopComplete" },
+    ];
+    const stepNumbers = new Map([
+      ["loop", "1"],
+      ["done", "2"],
+    ]);
+    const rfNodes = toRFNodes(nodes, stepNumbers, edges);
+    const loopRF = rfNodes.find((n) => n.id === "loop")!;
+    expect(loopRF.data.loopBodyConnected).toBe(false);
+    expect(loopRF.data.loopCompleteConnected).toBe(true);
+  });
+
+  it("sets both flags false when loop node has no outgoing edges", () => {
+    const nodes = [makeNode("loop", "loop", "flow_control")];
+    const stepNumbers = new Map([["loop", "1"]]);
+    const rfNodes = toRFNodes(nodes, stepNumbers, []);
+    const loopRF = rfNodes.find((n) => n.id === "loop")!;
+    expect(loopRF.data.loopBodyConnected).toBe(false);
+    expect(loopRF.data.loopCompleteConnected).toBe(false);
+  });
 })
 
 describe('toRFEdges', () => {
@@ -71,6 +110,44 @@ describe('toRFEdges', () => {
     expect(rfEdges[0].label).toBe('True')
     expect(rfEdges[0].sourceHandle).toBe('true')
   })
+
+  it("injects a loopBack edge for a loop node with a body chain", () => {
+    const nodes: WorkflowNode[] = [
+      makeNode("loop", "loop", "flow_control"),
+      makeNode("body1"),
+      makeNode("body2"),
+    ];
+    const edges: WorkflowEdge[] = [
+      {
+        id: "e1",
+        source: "loop",
+        target: "body1",
+        sourceHandle: "loopBody",
+        type: "loop",
+      },
+      { id: "e2", source: "body1", target: "body2" },
+    ];
+    const rfEdges = toRFEdges(edges, nodes);
+
+    // Should have the 2 real edges + 1 synthetic loopBack
+    expect(rfEdges).toHaveLength(3);
+    const loopBack = rfEdges.find((e) => e.type === "loopBack")!;
+    expect(loopBack).toBeDefined();
+    expect(loopBack.source).toBe("body2"); // last node in chain
+    expect(loopBack.target).toBe("loop");
+  });
+
+  it("does not inject loopBack when loop node has no body nodes", () => {
+    const nodes: WorkflowNode[] = [makeNode("loop", "loop", "flow_control")];
+    const rfEdges = toRFEdges([], nodes);
+    expect(rfEdges.find((e) => e.type === "loopBack")).toBeUndefined();
+  });
+
+  it("backward-compatible: toRFEdges without nodes still works", () => {
+    const edges: WorkflowEdge[] = [{ id: "e1", source: "a", target: "b" }];
+    const rfEdges = toRFEdges(edges);
+    expect(rfEdges).toHaveLength(1);
+  });
 })
 
 describe('fromRFNodes', () => {
