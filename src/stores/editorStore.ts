@@ -35,7 +35,6 @@ interface EditorState {
 
   // Actions — Node CRUD
   addNode: (node: WorkflowNode, context: PickerContext) => void
-  addIfNode: (node: WorkflowNode, context: PickerContext) => void
   deleteNode: (nodeId: string) => void
   updateNodeConfig: (nodeId: string, config: WorkflowNode['config']) => void
   updateNodeStatus: (nodeId: string, status: WorkflowNode['status']) => void
@@ -171,88 +170,6 @@ export const useEditorStore = create<EditorState>((set) => ({
             : sourceHandle === 'false' ? 'False'
             : sourceHandle === 'loopBody' ? 'Loop'
             : undefined,
-        })
-      }
-
-      const updatedWf = { ...wf, nodes: newNodes, edges: newEdges }
-      const laidOut = autoLayout(updatedWf.nodes, updatedWf.edges)
-      const wfFinal = { ...updatedWf, nodes: laidOut }
-      const { rfNodes, rfEdges } = rebuildRF(wfFinal)
-
-      return { workflow: wfFinal, rfNodes, rfEdges }
-    }),
-
-  addIfNode: (ifNode, context) =>
-    set((state) => {
-      if (!state.workflow) return state
-      const wf = state.workflow
-      const { sourceNodeId, sourceHandle, targetNodeId } = context
-      // addIfNode always requires a source node to connect from
-      if (!sourceNodeId) return state
-      const ts = Date.now()
-      const mergeId = `merge-${ts}`
-
-      // Auto-create a companion Merge node
-      const mergeNode: WorkflowNode = {
-        id: mergeId,
-        type: 'merge',
-        label: 'Merge Branches',
-        category: 'flow_control',
-        status: 'unconfigured',
-        config: { strategy: 'choose_branch' },
-        position: { x: 0, y: 0 },
-      }
-
-      const newNodes = [
-        ...wf.nodes,
-        { ...ifNode, position: { x: 0, y: 0 } },
-        mergeNode,
-      ]
-
-      // Remove the edge being split (source → target), if any
-      let newEdges = targetNodeId
-        ? wf.edges.filter(
-            (e) => !(
-              e.source === sourceNodeId &&
-              e.target === targetNodeId &&
-              (!sourceHandle || e.sourceHandle === sourceHandle || (!e.sourceHandle && sourceHandle === 'main'))
-            )
-          )
-        : [...wf.edges]
-
-      // source → IF
-      newEdges.push({
-        id: `e-${ts}-1`,
-        source: sourceNodeId,
-        target: ifNode.id,
-        sourceHandle: sourceHandle !== 'main' ? sourceHandle : undefined,
-      })
-      // IF → Merge (true branch)
-      newEdges.push({
-        id: `e-${ts}-2`,
-        source: ifNode.id,
-        target: mergeId,
-        sourceHandle: 'true',
-        targetHandle: 'branchA',
-        type: 'branch',
-        label: 'True',
-      })
-      // IF → Merge (false branch)
-      newEdges.push({
-        id: `e-${ts}-3`,
-        source: ifNode.id,
-        target: mergeId,
-        sourceHandle: 'false',
-        targetHandle: 'branchB',
-        type: 'branch',
-        label: 'False',
-      })
-      // Merge → original target (if any)
-      if (targetNodeId) {
-        newEdges.push({
-          id: `e-${ts}-4`,
-          source: mergeId,
-          target: targetNodeId,
         })
       }
 

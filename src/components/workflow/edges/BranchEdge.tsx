@@ -93,11 +93,11 @@ function BranchEdgeComponent({
         }}
       />
       <EdgeLabelRenderer>
-        {/* Branch label — floated just past the source handle */}
+        {/* Branch label — floated just past the source handle; False sits below the line */}
         <div
           style={{
             position: 'absolute',
-            transform: `translate(-50%, -120%) translate(${sourceX + 30}px,${sourceY}px)`,
+            transform: `translate(-50%, ${isFalseBranch ? '20%' : '-120%'}) translate(${sourceX + 30}px,${sourceY}px)`,
             pointerEvents: 'none',
           }}
         >

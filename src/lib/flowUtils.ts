@@ -7,6 +7,10 @@ export interface FlowNodeData {
   stepNumber: string
   /** True when this node has no outgoing edges — used to render an "add after" button */
   isTerminalNode: boolean
+  /** Whether the IF node's "true" handle already has an outgoing edge */
+  trueBranchConnected: boolean
+  /** Whether the IF node's "false" handle already has an outgoing edge */
+  falseBranchConnected: boolean
   [key: string]: unknown
 }
 
@@ -28,6 +32,13 @@ export function toRFNodes(
   edges: WorkflowEdge[]
 ): Node<FlowNodeData>[] {
   const nodesWithOutgoingEdge = new Set(edges.map((e) => e.source))
+  const nodesWithTrueEdge = new Set(
+    edges.filter((e) => e.sourceHandle === 'true').map((e) => e.source)
+  )
+  const nodesWithFalseEdge = new Set(
+    edges.filter((e) => e.sourceHandle === 'false').map((e) => e.source)
+  )
+
   return nodes.map((wn) => ({
     id: wn.id,
     type: rfNodeType(wn),
@@ -36,6 +47,8 @@ export function toRFNodes(
       workflowNode: wn,
       stepNumber: stepNumbers.get(wn.id) ?? '?',
       isTerminalNode: !nodesWithOutgoingEdge.has(wn.id),
+      trueBranchConnected: nodesWithTrueEdge.has(wn.id),
+      falseBranchConnected: nodesWithFalseEdge.has(wn.id),
     },
   }))
 }

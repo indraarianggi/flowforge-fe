@@ -49,7 +49,7 @@ export const seedWorkflows: Workflow[] = [
     updatedAt: '2026-02-18T09:00:00.000Z',
   },
 
-  // Workflow 2: IF branch — webhook → if → [true: notify sales] + [false: nurture] → merge
+  // Workflow 2: IF branch — webhook → if → [true: notify sales] | [false: nurture] (independent branches)
   {
     id: 'wf-002',
     userId: 'user-001',
@@ -100,22 +100,11 @@ export const seedWorkflows: Workflow[] = [
         config: { url: 'https://hooks.example.com/nurture', method: 'POST', headers: [], queryParams: [], bodyType: 'json', body: '{"lead": "{{ $trigger.json }}"}', authType: 'none', timeout: 5000 },
         position: { x: 0, y: 0 },
       },
-      {
-        id: 'n-014',
-        type: 'merge',
-        label: 'Merge Branches',
-        category: 'flow_control',
-        status: 'configured',
-        config: { strategy: 'choose_branch' },
-        position: { x: 0, y: 0 },
-      },
     ],
     edges: [
       { id: 'e-010', source: 'n-010', target: 'n-011' },
       { id: 'e-011', source: 'n-011', target: 'n-012', sourceHandle: 'true', type: 'branch', label: 'True' },
       { id: 'e-012', source: 'n-011', target: 'n-013', sourceHandle: 'false', type: 'branch', label: 'False' },
-      { id: 'e-013', source: 'n-012', target: 'n-014' },
-      { id: 'e-014', source: 'n-013', target: 'n-014' },
     ],
     settings: {},
     lastRunAt: '2026-02-17T14:30:00.000Z',

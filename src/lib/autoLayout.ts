@@ -25,7 +25,17 @@ export function autoLayout(
     g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT })
   })
 
-  edges.forEach((edge) => {
+  // Sort branch edges so 'true' always precedes 'false' for the same source node.
+  // Dagre uses edge-addition order to seed its crossing-minimisation heuristic,
+  // so this guarantees the true branch is always placed above the false branch
+  // regardless of the order the user connected the nodes.
+  const sortedEdges = [...edges].sort((a, b) => {
+    if (a.source !== b.source) return 0
+    const rank = (h: string | undefined) => (h === 'true' ? 0 : h === 'false' ? 1 : 2)
+    return rank(a.sourceHandle) - rank(b.sourceHandle)
+  })
+
+  sortedEdges.forEach((edge) => {
     g.setEdge(edge.source, edge.target)
   })
 

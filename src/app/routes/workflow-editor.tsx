@@ -42,7 +42,6 @@ export function WorkflowEditorPage() {
     openPicker,
     closePicker,
     addNode,
-    addIfNode,
     deleteNode,
     addEdge,
     runAutoLayout,
@@ -95,12 +94,7 @@ export function WorkflowEditorPage() {
 
   function handleNodeSelected(node: WorkflowNode) {
     if (!pickerContext) return
-    // IF node auto-scaffolds: IF + Merge + branch edges. All other nodes use generic addNode.
-    if (node.type === 'if_condition') {
-      addIfNode(node, pickerContext)
-    } else {
-      addNode(node, pickerContext)
-    }
+    addNode(node, pickerContext)
     closePicker()
   }
 
