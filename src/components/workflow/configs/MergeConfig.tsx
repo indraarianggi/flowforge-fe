@@ -17,19 +17,19 @@ export function MergeConfig({ config, onChange }: Props) {
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-slate-600">Merge strategy</Label>
         <Select
-          value={config.strategy}
-          onValueChange={(v) => onChange({ ...config, strategy: v as Config["strategy"] })}
+          value={config.mode}
+          onValueChange={(v) => onChange({ ...config, mode: v as Config["mode"] })}
         >
           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="append">Append outputs (combine into array)</SelectItem>
-            <SelectItem value="choose_branch">Choose executing branch only</SelectItem>
-            <SelectItem value="combine_by_key">Combine by key field</SelectItem>
+            <SelectItem value="chooseBranch">Choose executing branch only</SelectItem>
+            <SelectItem value="combineByKey">Combine by key field</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {config.strategy === "append" && (
+      {config.mode === "append" && (
         <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
           <p className="text-xs text-blue-700">
             Combines all branch outputs into a single array. Skipped branches produce empty entries.
@@ -37,7 +37,7 @@ export function MergeConfig({ config, onChange }: Props) {
         </div>
       )}
 
-      {config.strategy === "choose_branch" && (
+      {config.mode === "chooseBranch" && (
         <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
           <p className="text-xs text-blue-700">
             Passes through only the output of the branch that actually executed. Useful after IF nodes where only one branch runs.
@@ -45,7 +45,7 @@ export function MergeConfig({ config, onChange }: Props) {
         </div>
       )}
 
-      {config.strategy === "combine_by_key" && (
+      {config.mode === "combineByKey" && (
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-slate-600">Key field</Label>
           <Input
@@ -59,6 +59,19 @@ export function MergeConfig({ config, onChange }: Props) {
           </p>
         </div>
       )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <input
+          id="waitForAll"
+          type="checkbox"
+          checked={config.waitForAll ?? true}
+          onChange={(e) => onChange({ ...config, waitForAll: e.target.checked })}
+          className="rounded border-slate-300"
+        />
+        <label htmlFor="waitForAll" className="text-xs text-slate-600 cursor-pointer">
+          Wait for all branches before merging
+        </label>
+      </div>
     </div>
   )
 }
