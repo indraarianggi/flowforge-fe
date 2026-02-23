@@ -49,7 +49,7 @@ export const defaultConfig: Record<NodeType, object> = {
   code:                  { code: "// Return the output data\nreturn $input", inputMappings: [] },
   loop:                  { mode: "forEach", source: "", batchSize: 1, onItemError: "stopAll" },
   wait:                  { mode: "duration", durationValue: 5, durationUnit: "minutes" },
-  merge:                 { strategy: "append" },
+  merge:                 { mode: "append", waitForAll: true },
   telegram_send_message: { credentialId: "" },
   google_sheets_append:  { credentialId: "" },
   google_sheets_read:    { credentialId: "" },

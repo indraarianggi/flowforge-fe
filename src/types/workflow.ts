@@ -92,8 +92,9 @@ export interface WaitConfig {
 }
 
 export interface MergeConfig {
-  strategy: "append" | "choose_branch" | "combine_by_key"
+  mode: "append" | "chooseBranch" | "combineByKey"
   keyField?: string
+  waitForAll?: boolean
 }
 
 export interface IntegrationConfig {

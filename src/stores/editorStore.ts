@@ -50,6 +50,18 @@ interface EditorState {
   deleteEdge: (edgeId: string) => void
   addEdge: (connection: Connection) => void
 
+  // Test output cache — populated by "Test this step", consumed by Input/Output tabs
+  nodeTestOutputs: Record<string, unknown>  // nodeId → NodeOutput
+
+  // Persist error handling fields to the node (not buried in config)
+  setNodeTestOutput: (nodeId: string, output: unknown) => void
+  clearNodeTestOutput: (nodeId: string) => void
+  clearAllTestOutputs: () => void
+  updateNodeErrorHandling: (
+    nodeId: string,
+    patch: { onError: WorkflowNode['onError']; retryCount?: number; retryDelayMs?: number }
+  ) => void
+
   // Actions — Sync
   syncWorkflowFromRF: () => void
 }
@@ -70,6 +82,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isPanelOpen: false,
   isPickerOpen: false,
   pickerContext: null,
+  nodeTestOutputs: {},
 
   onNodesChange: (changes: NodeChange[]) => {
     set((state) => ({
@@ -303,6 +316,32 @@ export const useEditorStore = create<EditorState>((set) => ({
   openPicker: (context) => set({ isPickerOpen: true, pickerContext: context }),
 
   closePicker: () => set({ isPickerOpen: false, pickerContext: null }),
+
+  setNodeTestOutput: (nodeId, output) =>
+    set((state) => ({
+      nodeTestOutputs: { ...state.nodeTestOutputs, [nodeId]: output },
+    })),
+
+  clearNodeTestOutput: (nodeId) =>
+    set((state) => {
+      const next = { ...state.nodeTestOutputs }
+      delete next[nodeId]
+      return { nodeTestOutputs: next }
+    }),
+
+  clearAllTestOutputs: () => set({ nodeTestOutputs: {} }),
+
+  updateNodeErrorHandling: (nodeId, patch) =>
+    set((state) => {
+      if (!state.workflow) return state
+      const newNodes = state.workflow.nodes.map((n) =>
+        n.id === nodeId ? { ...n, ...patch } : n
+      )
+      const updatedWf = { ...state.workflow, nodes: newNodes }
+      const stepNumbers = getStepNumbers(updatedWf.nodes, updatedWf.edges)
+      const rfNodes = toRFNodes(updatedWf.nodes, stepNumbers, updatedWf.edges)
+      return { workflow: updatedWf, rfNodes }
+    }),
 
   syncWorkflowFromRF: () =>
     set((state) => {
