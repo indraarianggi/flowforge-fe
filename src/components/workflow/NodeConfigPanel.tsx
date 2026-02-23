@@ -37,7 +37,7 @@ interface Props {
 /** Returns ancestor node IDs in topological order (trigger first). */
 function getAncestorChain(
   nodeId: string,
-  nodes: WorkflowNode[],
+  _nodes: WorkflowNode[],
   edges: WorkflowEdge[]
 ): string[] {
   const reverseAdj = new Map<string, string[]>()

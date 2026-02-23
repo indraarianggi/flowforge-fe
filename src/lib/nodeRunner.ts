@@ -233,8 +233,9 @@ function runSetTransform(node: WorkflowNode, ctx: ExpressionContext): NodeOutput
 // ─── Code ────────────────────────────────────────────────────────────────────
 
 // Note: runs in browser (no sandboxing). Backend uses isolated-vm with 128MB/10s limits.
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as Function
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
+  ...args: string[]
+) => (...args: unknown[]) => Promise<unknown>
 
 async function runCode(node: WorkflowNode, inputData: unknown, ctx: ExpressionContext): Promise<NodeOutput> {
   const cfg = node.config as CodeConfig
